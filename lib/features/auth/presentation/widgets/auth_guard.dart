@@ -1,0 +1,34 @@
+// lib/features/auth/presentation/widgets/auth_guard.dart
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../screens/auth_screen.dart';
+// Make sure this path is correct for your MainAppLayout
+import '../../../layout/main_app_layout.dart';
+import '../../../../config/theme/app_colors.dart';
+
+class AuthGuard extends StatelessWidget {
+  const AuthGuard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(
+              child: CircularProgressIndicator(color: AppColors.secondary),
+            ),
+          );
+        }
+        if (snapshot.hasData && snapshot.data != null) {
+          // User is logged in, show MainAppLayout
+          return const MainAppLayout();
+        }
+        // User is not logged in
+        return const AuthScreen();
+      },
+    );
+  }
+}
