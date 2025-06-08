@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../account/presentation/screens/profile_screen.dart';
+import 'package:vibe_journal/config/theme/app_colors.dart';
+import 'package:vibe_journal/features/account/presentation/screens/profile_screen.dart';
 import '../journal/presentation/screens/journal_screen.dart';
 import '../calendar/presentation/screens/calendar_screen.dart';
 import '../insights/presentation/screens/insights_screen.dart';
+import '../ai_assistant/presentation/screens/ai_assistant_screen.dart';
 import '../settings/presentation/screens/settings_screen.dart';
 
 class MainAppLayout extends StatefulWidget {
@@ -15,17 +17,19 @@ class MainAppLayout extends StatefulWidget {
 class _MainAppLayoutState extends State<MainAppLayout> {
   int _currentIndex = 0;
 
-  // By defining the pages here, they will keep their state when switching tabs
   final List<Widget> _pages = [
     const JournalScreen(),
     const CalendarScreen(),
     const InsightsScreen(),
+    const AiAssistantScreen(),
   ];
 
+  // Add a title for the new page
   final List<String> _pageTitles = [
     'My Journal',
     'Mood Calendar',
     'Vibe Insights',
+    'AI Assistant', // <-- New Title
   ];
 
   void _onTabTapped(int index) {
@@ -44,7 +48,8 @@ class _MainAppLayoutState extends State<MainAppLayout> {
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
             onPressed: () {
-              Navigator.of(context).push(
+              Navigator.push(
+                context,
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
@@ -53,36 +58,33 @@ class _MainAppLayoutState extends State<MainAppLayout> {
             icon: const Icon(Icons.person_outline_rounded),
             tooltip: 'Account',
             onPressed: () {
-              Navigator.of(context).push(
+              Navigator.push(
+                context,
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
             },
           ),
         ],
       ),
-      // *** THIS IS THE FIX ***
-      // We use a Stack combined with AnimatedOpacity to create a stable fade transition
-      // while preserving the state of each page.
       body: Stack(
         children: List.generate(_pages.length, (index) {
           final bool isActive = index == _currentIndex;
           return IgnorePointer(
-            // Prevent interaction with inactive tabs that are faded out
             ignoring: !isActive,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
               opacity: isActive ? 1.0 : 0.0,
-              // By using Offstage, we also prevent non-visible widgets from being laid out,
-              // which improves performance, while still keeping their state alive.
               child: Offstage(offstage: !isActive, child: _pages[index]),
             ),
           );
         }),
       ),
-      // *** END OF FIX ***
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: AppColors.textHint,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.edit_note_rounded),
@@ -95,6 +97,11 @@ class _MainAppLayoutState extends State<MainAppLayout> {
           BottomNavigationBarItem(
             icon: Icon(Icons.insights_rounded),
             label: 'Insights',
+          ),
+          // --- NEW NAVIGATION ITEM ---
+          BottomNavigationBarItem(
+            icon: Icon(Icons.auto_awesome_rounded),
+            label: 'Assistant',
           ),
         ],
       ),

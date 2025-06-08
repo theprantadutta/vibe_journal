@@ -1,6 +1,9 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vibe_journal/features/journal/presentation/screens/vibe_detail_screen.dart';
 
 import '../../../../config/theme/app_colors.dart';
 import '../../../../core/services/service_locator.dart';
@@ -158,7 +162,9 @@ class _JournalScreenState extends State<JournalScreen>
       await _player.setUrl(url);
       _player.play();
     } catch (e) {
-      print("Error playing file $storagePath: $e");
+      if (kDebugMode) {
+        print("Error playing file $storagePath: $e");
+      }
       if (mounted) {
         setState(() => _currentlyPlayingOrLoadingId = null);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -194,7 +200,9 @@ class _JournalScreenState extends State<JournalScreen>
       if (mounted) setState(() => _currentlyPlayingOrLoadingId = previewId);
       _player.play();
     } catch (e) {
-      print("Error playing preview file $_tempAudioPath: $e");
+      if (kDebugMode) {
+        print("Error playing preview file $_tempAudioPath: $e");
+      }
     }
   }
 
@@ -276,7 +284,9 @@ class _JournalScreenState extends State<JournalScreen>
         _recordingState = AppRecordingState.recording;
       });
     } catch (e) {
-      print("Error starting recorder: $e");
+      if (kDebugMode) {
+        print("Error starting recorder: $e");
+      }
     }
   }
 
@@ -426,7 +436,9 @@ class _JournalScreenState extends State<JournalScreen>
       try {
         if (await fileToUpload.exists()) await fileToUpload.delete();
       } catch (e) {
-        print('Error deleting local temp file: $e');
+        if (kDebugMode) {
+          print('Error deleting local temp file: $e');
+        }
       }
       _triggerHaptic(HapticsType.success);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -466,7 +478,9 @@ class _JournalScreenState extends State<JournalScreen>
         try {
           file.deleteSync();
         } catch (e) {
-          print("Error deleting file: $e");
+          if (kDebugMode) {
+            print("Error deleting file: $e");
+          }
         }
       }
     }
@@ -526,8 +540,8 @@ class _JournalScreenState extends State<JournalScreen>
   }
 
   Future<void> _checkShowUpgradeBanner() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastDismissedTimestamp = prefs.getInt(_bannerDismissedKey);
+    final preferences = await SharedPreferences.getInstance();
+    final lastDismissedTimestamp = preferences.getInt(_bannerDismissedKey);
     if (lastDismissedTimestamp == null ||
         DateTime.now().millisecondsSinceEpoch - lastDismissedTimestamp >
             const Duration(days: 3).inMilliseconds) {
@@ -547,8 +561,8 @@ class _JournalScreenState extends State<JournalScreen>
 
   Future<void> _dismissUpgradeBanner() async {
     await _triggerHaptic(HapticsType.selection);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setInt(
       _bannerDismissedKey,
       DateTime.now().millisecondsSinceEpoch,
     );
@@ -591,7 +605,7 @@ class _JournalScreenState extends State<JournalScreen>
                       'Hey ${_currentUserModel!.fullName?.split(" ").first ?? 'Viber'},',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w300,
-                        color: AppColors.textSecondary.withOpacity(0.9),
+                        color: AppColors.textSecondary.withValues(alpha: 0.9),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -622,7 +636,7 @@ class _JournalScreenState extends State<JournalScreen>
                         return _buildVibeOrbUI(theme, progress);
                       },
                     ),
-                    const SizedBox(height: 10),
+                    // const SizedBox(height: 10),
                     _buildActionButtons(theme),
                   ],
                 ),
@@ -713,7 +727,7 @@ class _JournalScreenState extends State<JournalScreen>
                 color: orbColor,
                 boxShadow: [
                   BoxShadow(
-                    color: orbColor.withOpacity(0.4),
+                    color: orbColor.withValues(alpha: 0.4),
                     blurRadius: 20,
                     spreadRadius:
                         (_recordingState == AppRecordingState.recording
@@ -759,7 +773,7 @@ class _JournalScreenState extends State<JournalScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.secondary.withOpacity(0.5),
+                AppColors.secondary.withValues(alpha: 0.5),
                 AppColors.secondary,
               ],
             ),
@@ -931,18 +945,24 @@ class _JournalScreenState extends State<JournalScreen>
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0),
               color: isActive
-                  ? AppColors.primary.withOpacity(0.1)
+                  ? AppColors.primary.withValues(alpha: 0.1)
                   : AppColors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
                   color: isActive
-                      ? AppColors.primary.withOpacity(0.5)
+                      ? AppColors.primary.withValues(alpha: 0.5)
                       : Colors.transparent,
                   width: 1,
                 ),
               ),
               child: ListTile(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VibeDetailScreen(vibe: vibe),
+                  ),
+                ),
                 leading: Icon(
                   Icons.graphic_eq_rounded,
                   color: AppColors.moodColors[vibe.mood] ?? AppColors.textHint,
@@ -982,9 +1002,9 @@ class _JournalScreenState extends State<JournalScreen>
         margin: const EdgeInsets.symmetric(vertical: 15),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.15),
+          color: AppColors.primary.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -1042,7 +1062,10 @@ class _JournalScreenState extends State<JournalScreen>
         ),
       );
     }
-    return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 15),
+      child: const SizedBox.shrink(),
+    );
   }
 
   String _formatDuration(int milliseconds) {
@@ -1064,8 +1087,6 @@ class _JournalScreenState extends State<JournalScreen>
         return "Listening closely...";
       case AppRecordingState.stopped:
         return "Vibe captured! What's next?";
-      default:
-        return "Let's record a vibe!";
     }
   }
 }

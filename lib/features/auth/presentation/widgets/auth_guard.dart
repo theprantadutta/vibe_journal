@@ -1,8 +1,6 @@
-// lib/features/auth/presentation/widgets/auth_guard.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/auth_screen.dart';
-// Make sure this path is correct for your MainAppLayout
 import '../../../layout/main_app_layout.dart';
 import '../../../../config/theme/app_colors.dart';
 

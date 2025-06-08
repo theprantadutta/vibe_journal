@@ -151,7 +151,7 @@ class VibeJournalApp extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.textSecondary,
             side: BorderSide(
-              color: AppColors.textSecondary.withOpacity(0.5),
+              color: AppColors.textSecondary.withValues(alpha: 0.5),
               width: 1.5,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -197,7 +197,7 @@ class VibeJournalApp extends StatelessWidget {
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
             borderSide: BorderSide(
-              color: AppColors.error.withOpacity(0.8),
+              color: AppColors.error.withValues(alpha: 0.8),
               width: 1.0,
             ),
           ),
@@ -228,13 +228,13 @@ class VibeJournalApp extends StatelessWidget {
           }),
           trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
             if (states.contains(WidgetState.selected)) {
-              return AppColors.switchActive.withOpacity(0.5);
+              return AppColors.switchActive.withValues(alpha: 0.5);
             }
             return AppColors.switchInactiveTrack;
           }),
           trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
             if (states.contains(WidgetState.selected)) {
-              return AppColors.switchActive.withOpacity(0.2);
+              return AppColors.switchActive.withValues(alpha: 0.2);
             }
             return Colors.transparent;
           }),
@@ -257,8 +257,8 @@ class VibeJournalApp extends StatelessWidget {
           elevation: 0,
         ),
 
-        splashColor: Colors.white.withOpacity(0.12),
-        highlightColor: Colors.white.withOpacity(0.10),
+        splashColor: Colors.white.withValues(alpha: 0.12),
+        highlightColor: Colors.white.withValues(alpha: 0.10),
       ),
       home: const AuthGuard(),
     );

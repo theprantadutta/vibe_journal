@@ -1,6 +1,9 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 import 'dart:collection';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,6 +13,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../config/theme/app_colors.dart';
 import '../../../journal/domain/models/vibe_model.dart';
+import '../../../journal/presentation/screens/vibe_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -116,7 +120,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         }
       },
       onError: (error) {
-        print("Error fetching vibes: $error");
+        if (kDebugMode) {
+          print("Error fetching vibes: $error");
+        }
         if (mounted) setState(() => _isLoading = false);
       },
     );
@@ -167,7 +173,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       await _player.setUrl(url);
       _player.play();
     } catch (e) {
-      print("Error playing vibe: $e");
+      if (kDebugMode) {
+        print("Error playing vibe: $e");
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Error: Could not play audio."),
@@ -200,9 +208,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
     String dominantMood = 'unknown';
     int maxCount = 0;
-    moodCounts.forEach((mood, count) {
-      if (count > maxCount) {
-        maxCount = count;
+    moodCounts.forEach((mood, moodCount) {
+      if (moodCount > maxCount) {
+        maxCount = moodCount;
         dominantMood = mood;
       }
     });
@@ -250,13 +258,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 color: AppColors.textSecondary,
               ),
               weekendTextStyle: textTheme.bodyMedium!.copyWith(
-                color: AppColors.secondary.withOpacity(0.8),
+                color: AppColors.secondary.withValues(alpha: 0.8),
               ),
               outsideTextStyle: textTheme.bodyMedium!.copyWith(
                 color: AppColors.textDisabled,
               ),
               todayDecoration: BoxDecoration(
-                color: AppColors.secondary.withOpacity(0.3),
+                color: AppColors.secondary.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
               ),
               todayTextStyle: textTheme.bodyMedium!.copyWith(
@@ -281,7 +289,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       AppColors.moodColors[dominantMood] ?? Colors.transparent;
                   return Container(
                     decoration: BoxDecoration(
-                      color: moodColor.withOpacity(0.25),
+                      color: moodColor.withValues(alpha: 0.25),
                       shape: BoxShape.circle,
                     ),
                     margin: const EdgeInsets.all(6.0),
@@ -377,18 +385,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 6.0),
                         color: isActive
-                            ? AppColors.primary.withOpacity(0.1)
+                            ? AppColors.primary.withValues(alpha: 0.1)
                             : AppColors.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(
                             color: isActive
-                                ? AppColors.primary.withOpacity(0.5)
+                                ? AppColors.primary.withValues(alpha: 0.5)
                                 : Colors.transparent,
                             width: 1,
                           ),
                         ),
                         child: ListTile(
+                          onTap: () {
+                            // Navigate to the Detail Screen
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    VibeDetailScreen(vibe: vibe),
+                              ),
+                            );
+                          },
                           leading: Icon(
                             isPlaying
                                 ? Icons.graphic_eq_rounded

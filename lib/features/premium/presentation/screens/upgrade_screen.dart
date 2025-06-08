@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
 
@@ -107,7 +107,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   _buildPlanSelector(
                     context: context,
                     title: "Yearly",
-                    price: "\$29.99/year", // Placeholder price
+                    price: "\$29.99/year",
                     subtitle: "Best Value - Save 50%",
                     isSelected: _selectedPlanId == 'yearly',
                     onTap: () => setState(() => _selectedPlanId = 'yearly'),
@@ -116,7 +116,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   _buildPlanSelector(
                     context: context,
                     title: "Monthly",
-                    price: "\$4.99/month", // Placeholder price
+                    price: "\$4.99/month",
                     subtitle: "Flexible",
                     isSelected: _selectedPlanId == 'monthly',
                     onTap: () => setState(() => _selectedPlanId = 'monthly'),
@@ -135,7 +135,9 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                     ),
                     onPressed: () {
                       // TODO: Trigger Google Play purchase flow for _selectedPlanId
-                      print("Initiating purchase for: $_selectedPlanId");
+                      if (kDebugMode) {
+                        print("Initiating purchase for: $_selectedPlanId");
+                      }
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Connecting to Google Play Store...'),
@@ -230,7 +232,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: 10,
                     spreadRadius: 2,
                   ),

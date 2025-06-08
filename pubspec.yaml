@@ -28,7 +28,10 @@ dependencies:
   flutter_sound: ^9.28.0
   fl_chart: ^1.0.0
   in_app_purchase: ^3.2.3
+  cloud_functions: ^5.5.1
+  rxdart: ^0.28.0
 
+  collection: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

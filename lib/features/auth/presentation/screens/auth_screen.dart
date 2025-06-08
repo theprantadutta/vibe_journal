@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -84,9 +85,7 @@ class _AuthScreenState extends State<AuthScreen> {
               .doc(userCredential.user!.uid)
               .get();
           if (userDoc.exists) {
-            userModel = UserModel.fromFirestore(
-              userDoc as DocumentSnapshot<Map<String, dynamic>>,
-            );
+            userModel = UserModel.fromFirestore(userDoc);
           } else {
             _errorMessage = 'User data not found. Please contact support.';
           }
@@ -124,10 +123,9 @@ class _AuthScreenState extends State<AuthScreen> {
               .set(newUserFirestoreData);
           userModel = UserModel.fromFirestore(
             await _firestore
-                    .collection('users')
-                    .doc(userCredential.user!.uid)
-                    .get()
-                as DocumentSnapshot<Map<String, dynamic>>,
+                .collection('users')
+                .doc(userCredential.user!.uid)
+                .get(),
           );
         }
       }
@@ -153,13 +151,16 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (err) {
       _errorMessage = 'An unexpected error occurred. Please try again.';
-      print('Unexpected error during auth: $err');
+      if (kDebugMode) {
+        print('Unexpected error during auth: $err');
+      }
     }
 
-    if (mounted)
+    if (mounted) {
       setState(() {
         _isLoading = false;
       });
+    }
   }
 
   void _toggleAuthMode() {

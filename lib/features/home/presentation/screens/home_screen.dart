@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// If you have AppColors defined and want to use them for the AppBar:
-// import '../../../../config/theme/app_colors.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   Future<String?> _fetchUserName(User user) async {
-    // This is an example. You might fetch from Firestore if 'displayName' isn't set
-    // or if you prefer the Firestore 'fullName' or 'username'.
     if (user.displayName != null && user.displayName!.isNotEmpty) {
       return user.displayName;
     }
-    // Fallback to email if displayName is not available
     return user.email;
   }
 
@@ -23,14 +18,12 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('VibeJournal'),
-        // backgroundColor: AppColors.appBarBackground, // Example theming
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'Logout',
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
-              // AuthGuard will handle navigation to AuthScreen
             },
           ),
         ],
