@@ -60,4 +60,12 @@ class AppColors {
   // static const Color moodHappy = Color(0xFF69F0AE); // Greenish
   // static const Color moodCalm = Color(0xFF4FC3F7); // Bluish
   // static const Color moodEnergetic = Color(0xFFFFD740); // Yellowish
+
+  // --- Mood Colors ---
+  static const Map<String, Color> moodColors = {
+    'positive': Color(0xFF4ADE80), // A nice, vibrant green
+    'negative': Color(0xFF60A5FA), // A calm, slightly muted blue
+    'neutral': Color(0xFF94A3B8), // A neutral slate/grey color
+    'unknown': Color(0xFF475569), // A darker grey for unknown/failed
+  };
 }

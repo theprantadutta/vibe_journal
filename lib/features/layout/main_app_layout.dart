@@ -1,10 +1,9 @@
-// lib/features/layout/main_app_layout.dart
 import 'package:flutter/material.dart';
-import '../journal/presentation/screens/journal_screen.dart'; // Adjust path
-import '../calendar/presentation/screens/calendar_screen.dart'; // Adjust path
-import '../insights/presentation/screens/insights_screen.dart'; // Adjust path
-// Import AppColors if needed for direct styling, though ThemeData is preferred
-// import '../../config/theme/app_colors.dart';
+import '../account/presentation/screens/profile_screen.dart';
+import '../journal/presentation/screens/journal_screen.dart';
+import '../calendar/presentation/screens/calendar_screen.dart';
+import '../insights/presentation/screens/insights_screen.dart';
+import '../settings/presentation/screens/settings_screen.dart';
 
 class MainAppLayout extends StatefulWidget {
   const MainAppLayout({super.key});
@@ -14,8 +13,9 @@ class MainAppLayout extends StatefulWidget {
 }
 
 class _MainAppLayoutState extends State<MainAppLayout> {
-  int _currentIndex = 0; // Default to the first tab (Journal)
+  int _currentIndex = 0;
 
+  // By defining the pages here, they will keep their state when switching tabs
   final List<Widget> _pages = [
     const JournalScreen(),
     const CalendarScreen(),
@@ -23,7 +23,6 @@ class _MainAppLayoutState extends State<MainAppLayout> {
   ];
 
   final List<String> _pageTitles = [
-    // Optional: for a dynamic AppBar title
     'My Journal',
     'Mood Calendar',
     'Vibe Insights',
@@ -37,29 +36,53 @@ class _MainAppLayoutState extends State<MainAppLayout> {
 
   @override
   Widget build(BuildContext context) {
-    // The BottomNavigationBarTheme is already defined in your main.dart's ThemeData
-    // So, it should pick up those styles automatically.
-    // You can override specific properties here if needed.
-
     return Scaffold(
-      // You can have a common AppBar here, or each page can define its own.
-      // If you have a common AppBar, you can update its title dynamically.
       appBar: AppBar(
         title: Text(_pageTitles[_currentIndex]),
-        // elevation: 0, // Consistent with your theme
-        // backgroundColor: Theme.of(context).appBarTheme.backgroundColor, // From theme
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person_outline_rounded),
+            tooltip: 'Account',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+        ],
       ),
-      body: IndexedStack(
-        // Using IndexedStack to preserve state of inactive tabs
-        index: _currentIndex,
-        children: _pages,
+      // *** THIS IS THE FIX ***
+      // We use a Stack combined with AnimatedOpacity to create a stable fade transition
+      // while preserving the state of each page.
+      body: Stack(
+        children: List.generate(_pages.length, (index) {
+          final bool isActive = index == _currentIndex;
+          return IgnorePointer(
+            // Prevent interaction with inactive tabs that are faded out
+            ignoring: !isActive,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: isActive ? 1.0 : 0.0,
+              // By using Offstage, we also prevent non-visible widgets from being laid out,
+              // which improves performance, while still keeping their state alive.
+              child: Offstage(offstage: !isActive, child: _pages[index]),
+            ),
+          );
+        }),
       ),
+      // *** END OF FIX ***
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
-        // type: BottomNavigationBarType.fixed, // Already set in theme
-        // selectedItemColor: AppColors.bottomNavSelected, // From theme
-        // unselectedItemColor: AppColors.bottomNavUnselected, // From theme
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.edit_note_rounded),
