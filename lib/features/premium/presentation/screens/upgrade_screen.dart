@@ -318,7 +318,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   onTap: () => setState(() => _selectedPlan = product),
                 ),
               );
-            }).toList(),
+            }),
 
             const SizedBox(height: 8),
 

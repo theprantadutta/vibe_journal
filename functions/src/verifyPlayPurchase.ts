@@ -11,7 +11,7 @@ export const verifyPlayPurchase = onCall(async (request) => {
   }
 
   const {purchaseToken, subscriptionId} = request.data;
-  const packageName = "com.pranta.vibejournal"; // <-- IMPORTANT: Replace with your actual package name
+  const packageName = "com.pranta.vibejournal";
 
   if (!purchaseToken || !subscriptionId) {
     throw new HttpsError("invalid-argument", "Missing purchase token or subscription ID.");

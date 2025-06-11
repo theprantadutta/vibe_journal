@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
+import 'package:vibe_journal/core/services/user_service.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
@@ -21,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final UserModel _userModel = locator<UserModel>();
+  final UserService _userService = locator<UserService>();
 
   String getInitials(String fullName) {
     if (fullName.isEmpty) return "V";
@@ -293,21 +295,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Card to show for FREE users
   Widget _buildFreeUserCard(ThemeData theme) {
     double usagePercentage =
-        _userModel.cloudVibeCount / _userModel.maxCloudVibes;
+        _userModel.cloudVibeCount / _userService.maxCloudVibes;
     return _buildSectionCard(
       title: "Free Plan",
       children: [
         _buildLimitIndicator(
           title: "Cloud Vibe Storage",
           valueText:
-              "${_userModel.cloudVibeCount} / ${_userModel.maxCloudVibes} recordings",
+              "${_userModel.cloudVibeCount} / ${_userService.maxCloudVibes} recordings",
           progress: usagePercentage,
         ),
         _buildLimitInfo(
           icon: Icons.mic_rounded,
           title: "Recording Length",
           subtitle:
-              "Up to ${_userModel.maxRecordingDurationMinutes} minutes per vibe",
+              "Up to ${_userService.maxRecordingDurationMinutes} minutes per vibe",
         ),
         const Divider(height: 24, color: AppColors.inputFill),
         _buildLockedFeature(
@@ -461,8 +463,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             onTap: () async {
-              await FirebaseAuth.instance.signOut();
-              clearUserSession();
+              // Show a confirmation dialog before logging out
+              final bool? shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: AppColors.surface,
+                  title: const Text('Confirm Logout'),
+                  content: const Text(
+                    'Are you sure you want to log out?',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: AppColors.textHint),
+                      ),
+                      onPressed: () {
+                        // Close the dialog and return false
+                        Navigator.of(ctx).pop(false);
+                      },
+                    ),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.error,
+                      ),
+                      child: const Text('Logout'),
+                      onPressed: () {
+                        // Close the dialog and return true
+                        Navigator.of(ctx).pop(true);
+                      },
+                    ),
+                  ],
+                ),
+              );
+
+              // The code below will only run if the user tapped 'Logout'
+              if (shouldLogout == true) {
+                // Use our new UserService to clear the user's session data
+                locator<UserService>().clearUser();
+
+                // Sign out from Firebase Authentication
+                await FirebaseAuth.instance.signOut();
+
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AuthScreen()),
+                  (route) => false,
+                );
+              }
             },
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),

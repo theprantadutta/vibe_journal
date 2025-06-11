@@ -14,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vibe_journal/core/services/user_service.dart';
 import 'package:vibe_journal/features/journal/presentation/screens/vibe_detail_screen.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart'
     show UpgradeScreen;
@@ -64,6 +65,7 @@ class _JournalScreenState extends State<JournalScreen>
   Duration _playerPosition = Duration.zero;
 
   UserModel? _currentUserModel;
+  final _userService = locator<UserService>();
   bool _isSavingVibe = false;
 
   ja.PlayerState? _playerState;
@@ -265,14 +267,14 @@ class _JournalScreenState extends State<JournalScreen>
       _orbAnimationController?.repeat(reverse: true);
       _maxDurationTimer?.cancel();
       final maxDuration = Duration(
-        minutes: _currentUserModel!.maxRecordingDurationMinutes,
+        minutes: _userService.maxRecordingDurationMinutes,
       );
       _maxDurationTimer = Timer(maxDuration, () {
         if (_recordingState == AppRecordingState.recording) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Recording limit of ${_currentUserModel!.maxRecordingDurationMinutes} min reached.',
+                'Recording limit of ${_userService.maxRecordingDurationMinutes} min reached.',
               ),
               backgroundColor: AppColors.primary,
             ),
@@ -315,7 +317,7 @@ class _JournalScreenState extends State<JournalScreen>
 
   Future<void> _saveVibe() async {
     if (_tempAudioPath == null || _currentUserModel == null) return;
-    if (_currentUserModel!.cloudVibeCount >= _currentUserModel!.maxCloudVibes) {
+    if (_currentUserModel!.cloudVibeCount >= _userService.maxCloudVibes) {
       _triggerHaptic(HapticsType.warning);
       showDialog(
         context: context,
@@ -326,7 +328,7 @@ class _JournalScreenState extends State<JournalScreen>
             style: TextStyle(color: AppColors.primary),
           ),
           content: Text(
-            'You\'ve reached your limit of ${_currentUserModel!.maxCloudVibes} saved vibes. Upgrade for unlimited storage!',
+            'You\'ve reached your limit of ${_userService.maxCloudVibes} saved vibes. Upgrade for unlimited storage!',
             style: TextStyle(color: AppColors.textSecondary),
           ),
           actions: [

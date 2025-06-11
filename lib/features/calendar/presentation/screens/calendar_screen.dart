@@ -293,6 +293,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       shape: BoxShape.circle,
                     ),
                     margin: const EdgeInsets.all(6.0),
+                    child: Center(
+                      child: Text(
+                        day.day.toString(),
+                        style: textTheme.bodyMedium!.copyWith(
+                          color: moodColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   );
                 }
                 return null;

@@ -1,11 +1,13 @@
 import 'package:get_it/get_it.dart';
 import '../../features/auth/domain/models/user_model.dart';
+import 'user_service.dart';
 
 final GetIt locator = GetIt.instance;
 
 void setupLocator() {
-  // We will register UserModel dynamically after login/signup
-  // You can register other app-wide services here if needed
+  // Register our UserService as a singleton.
+  // It will be created once and live for the entire app session.
+  locator.registerSingleton<UserService>(UserService());
 }
 
 // Helper functions to manage UserModel in GetIt

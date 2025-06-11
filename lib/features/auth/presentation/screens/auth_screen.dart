@@ -1,8 +1,11 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vibe_journal/features/layout/main_app_layout.dart';
 import 'package:vibe_journal/features/legal/presentation/privacy_policy_content.dart';
 import 'package:vibe_journal/features/legal/presentation/terms_and_conditions_content.dart';
 import '../../../../config/theme/app_colors.dart';
@@ -29,9 +32,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  final int _freeTierMaxCloudVibes = 75;
-  final int _freeTierMaxRecordingDurationMinutes = 5;
 
   // State for legal agreement checkboxes
   bool _agreedToTerms = false;
@@ -114,8 +114,6 @@ class _AuthScreenState extends State<AuthScreen> {
             'uid': userCredential.user!.uid,
             'plan': 'free',
             'cloudVibeCount': 0,
-            'maxCloudVibes': _freeTierMaxCloudVibes,
-            'maxRecordingDurationMinutes': _freeTierMaxRecordingDurationMinutes,
           };
           await _firestore
               .collection('users')
@@ -132,6 +130,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (userModel != null) {
         registerUserSession(userModel);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainAppLayout()),
+        );
       } else if (_isLoginMode && _errorMessage != null) {
         setState(() {
           _isLoading = false;
