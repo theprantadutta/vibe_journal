@@ -1,6 +1,16 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
+
+const String _monthlySubscriptionId = 'vibejournal_premium_monthly';
+const String _yearlySubscriptionId = 'vibejournal_premium_yearly';
+const List<String> _kProductIds = <String>[
+  _monthlySubscriptionId,
+  _yearlySubscriptionId,
+];
 
 class UpgradeScreen extends StatefulWidget {
   const UpgradeScreen({super.key});
@@ -10,7 +20,172 @@ class UpgradeScreen extends StatefulWidget {
 }
 
 class _UpgradeScreenState extends State<UpgradeScreen> {
-  String _selectedPlanId = 'yearly'; // Default to yearly for best value
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  late StreamSubscription<List<PurchaseDetails>> _subscription;
+
+  List<ProductDetails> _products = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  // State for which plan is selected in the UI
+  ProductDetails? _selectedPlan;
+
+  @override
+  void initState() {
+    super.initState();
+    final Stream<List<PurchaseDetails>> purchaseUpdated =
+        _inAppPurchase.purchaseStream;
+    _subscription = purchaseUpdated.listen(
+      (purchaseDetailsList) {
+        _listenToPurchaseUpdated(purchaseDetailsList);
+      },
+      onDone: () {
+        _subscription.cancel();
+      },
+      onError: (error) {
+        setState(() {
+          _errorMessage = "Failed to connect to the store. Please try again.";
+        });
+      },
+    );
+
+    _initStoreInfo();
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initStoreInfo() async {
+    final bool isAvailable = await _inAppPurchase.isAvailable();
+    if (!mounted) return;
+
+    if (!isAvailable) {
+      setState(() {
+        _products = [];
+        _isLoading = false;
+        _errorMessage = 'The store is not available on this device.';
+      });
+      return;
+    }
+
+    final ProductDetailsResponse productDetailResponse = await _inAppPurchase
+        .queryProductDetails(_kProductIds.toSet());
+
+    if (productDetailResponse.error != null) {
+      setState(() {
+        _errorMessage =
+            "Error fetching plans: ${productDetailResponse.error!.message}";
+        _products = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (productDetailResponse.productDetails.isEmpty) {
+      setState(() {
+        _errorMessage =
+            'No subscription plans could be found. This may be a temporary issue or they may not be configured in the Play Store yet.';
+        _products = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    productDetailResponse.productDetails.sort(
+      (a, b) => a.id == _yearlySubscriptionId ? -1 : 1,
+    );
+
+    if (mounted) {
+      setState(() {
+        _products = productDetailResponse.productDetails;
+        _isLoading = false;
+        if (_products.isNotEmpty) {
+          _selectedPlan = _products.first;
+        }
+      });
+    }
+  }
+
+  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
+    for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
+      if (purchaseDetails.status == PurchaseStatus.pending) {
+        // You can show a pending UI if needed, but the store usually handles this.
+      } else {
+        if (purchaseDetails.status == PurchaseStatus.error) {
+          _handleError(purchaseDetails.error!);
+        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
+            purchaseDetails.status == PurchaseStatus.restored) {
+          _handlePurchase(purchaseDetails);
+        }
+        if (purchaseDetails.pendingCompletePurchase) {
+          _inAppPurchase.completePurchase(purchaseDetails);
+        }
+      }
+    }
+  }
+
+  void _handleError(IAPError error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("An error occurred: ${error.message}"),
+        backgroundColor: AppColors.error,
+      ),
+    );
+  }
+
+  Future<void> _handlePurchase(PurchaseDetails purchaseDetails) async {
+    if (purchaseDetails.status == PurchaseStatus.purchased) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Purchase successful! Verifying with server...'),
+        ),
+      );
+
+      try {
+        final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable(
+          'verifyPlayPurchase',
+        );
+        await callable.call<Map<String, dynamic>>({
+          'purchaseToken':
+              purchaseDetails.verificationData.serverVerificationData,
+          'subscriptionId': purchaseDetails.productID,
+        });
+
+        // After verification, the backend updates Firestore. The app state
+        // will refresh when the user model is reloaded upon returning to a screen.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Success! VibeJournal Premium is now active.'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+
+        if (mounted) Navigator.of(context).pop();
+      } catch (e) {
+        print("Error verifying purchase with backend: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification failed. Please contact support.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+
+    if (purchaseDetails.pendingCompletePurchase) {
+      await InAppPurchase.instance.completePurchase(purchaseDetails);
+    }
+  }
+
+  void _buySubscription(ProductDetails productDetails) {
+    final PurchaseParam purchaseParam = PurchaseParam(
+      productDetails: productDetails,
+    );
+    _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +201,17 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _inAppPurchase.restorePurchases();
+            },
+            child: const Text("Restore"),
+          ),
+        ],
       ),
       body: Stack(
         children: [
-          // Background Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -40,156 +222,127 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               ),
             ),
           ),
-          SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
-                  // Header
-                  const Icon(
-                    Icons.star_purple500_rounded,
-                    color: AppColors.primary,
-                    size: 60,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Unlock Your Full Potential',
-                    textAlign: TextAlign.center,
-                    style: textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Go Premium to get unlimited access to all features and gain deeper insights into your emotional well-being.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
 
-                  // Feature List
-                  _buildFeatureRow(
-                    icon: Icons.cloud_done_rounded,
-                    text: 'Unlimited Cloud Vibe Storage',
-                  ),
-                  _buildFeatureRow(
-                    icon: Icons.mic_rounded,
-                    text: 'Longer Recordings (up to 60 mins)',
-                  ),
-                  _buildFeatureRow(
-                    icon: Icons.transcribe_rounded,
-                    text: 'Automatic Speech-to-Text Transcription',
-                  ),
-                  _buildFeatureRow(
-                    icon: Icons.auto_graph_rounded,
-                    text: 'Advanced Mood & Trend Charts',
-                  ),
-                  _buildFeatureRow(
-                    icon: Icons.psychology_rounded,
-                    text: 'AI-Powered Journaling Assistant',
-                  ),
-                  _buildFeatureRow(
-                    icon: Icons.movie_filter_rounded,
-                    text: '"Future Me" Audio Mashups',
-                  ),
-                  _buildFeatureRow(
-                    icon: Icons.no_encryption_gmailerrorred_rounded,
-                    text: '100% Ad-Free Experience',
-                  ),
+          // --- THIS IS THE CORRECTED LOGIC ---
+          // It now handles the loading, error, and success states.
+          _buildBody(textTheme),
+        ],
+      ),
+    );
+  }
 
-                  const SizedBox(height: 32),
+  Widget _buildBody(TextTheme textTheme) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
 
-                  // Plan Selection
-                  _buildPlanSelector(
-                    context: context,
-                    title: "Yearly",
-                    price: "\$29.99/year",
-                    subtitle: "Best Value - Save 50%",
-                    isSelected: _selectedPlanId == 'yearly',
-                    onTap: () => setState(() => _selectedPlanId = 'yearly'),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPlanSelector(
-                    context: context,
-                    title: "Monthly",
-                    price: "\$4.99/month",
-                    subtitle: "Flexible",
-                    isSelected: _selectedPlanId == 'monthly',
-                    onTap: () => setState(() => _selectedPlanId = 'monthly'),
-                  ),
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Text(
+            _errorMessage!,
+            style: textTheme.bodyLarge?.copyWith(color: AppColors.textHint),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
 
-                  const SizedBox(height: 24),
-
-                  // Main CTA Button
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      // TODO: Trigger Google Play purchase flow for _selectedPlanId
-                      if (kDebugMode) {
-                        print("Initiating purchase for: $_selectedPlanId");
-                      }
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Connecting to Google Play Store...'),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      'Upgrade and Start Thriving',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.onSecondary,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Footer links
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          "Restore Purchase",
-                          style: textTheme.bodySmall?.copyWith(
-                            color: AppColors.textHint,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        "•",
-                        style: textTheme.bodySmall?.copyWith(
-                          color: AppColors.textHint,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          "Terms of Service",
-                          style: textTheme.bodySmall?.copyWith(
-                            color: AppColors.textHint,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+    // If loading is done and there are no errors, show the content
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 20),
+            const Icon(
+              Icons.star_purple500_rounded,
+              color: AppColors.primary,
+              size: 60,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Unlock Your Full Potential',
+              textAlign: TextAlign.center,
+              style: textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Go Premium to get unlimited access to all features and gain deeper insights into your emotional well-being.',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyLarge?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            _buildFeatureRow(
+              icon: Icons.cloud_done_rounded,
+              text: 'Unlimited Cloud Vibe Storage',
+            ),
+            _buildFeatureRow(
+              icon: Icons.mic_rounded,
+              text: 'Longer Recordings (up to 60 mins)',
+            ),
+            _buildFeatureRow(
+              icon: Icons.transcribe_rounded,
+              text: 'Automatic Speech-to-Text Transcription',
+            ),
+            _buildFeatureRow(
+              icon: Icons.auto_graph_rounded,
+              text: 'Advanced Mood & Trend Charts',
+            ),
+            _buildFeatureRow(
+              icon: Icons.psychology_rounded,
+              text: 'AI-Powered Journaling Assistant',
+            ),
+
+            const SizedBox(height: 32),
+
+            ..._products.map((product) {
+              final isYearly = product.id == _yearlySubscriptionId;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: _buildPlanSelector(
+                  context: context,
+                  title: product.title,
+                  price: product.price,
+                  subtitle: isYearly ? "Best Value - Save 50%" : "Flexible",
+                  isSelected: _selectedPlan?.id == product.id,
+                  onTap: () => setState(() => _selectedPlan = product),
+                ),
+              );
+            }).toList(),
+
+            const SizedBox(height: 8),
+
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _selectedPlan == null
+                  ? null
+                  : () => _buySubscription(_selectedPlan!),
+              child: Text(
+                'Upgrade and Start Thriving',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.onSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -232,7 +385,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
+                    color: AppColors.primary.withOpacity(0.3),
                     blurRadius: 10,
                     spreadRadius: 2,
                   ),

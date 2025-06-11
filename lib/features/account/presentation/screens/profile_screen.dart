@@ -453,25 +453,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           ListTile(
-            leading: const Icon(
-              Icons.edit_outlined,
-              color: AppColors.textSecondary,
-            ),
-            title: Text('Edit Profile', style: theme.textTheme.bodyLarge),
-            trailing: const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textHint,
-            ),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Edit Profile screen coming soon!'),
-                ),
-              );
-            },
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          ListTile(
             leading: const Icon(Icons.logout_rounded, color: AppColors.error),
             title: Text(
               'Logout',

@@ -15,6 +15,8 @@ import 'package:intl/intl.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vibe_journal/features/journal/presentation/screens/vibe_detail_screen.dart';
+import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart'
+    show UpgradeScreen;
 
 import '../../../../config/theme/app_colors.dart';
 import '../../../../core/services/service_locator.dart';
@@ -593,77 +595,69 @@ class _JournalScreenState extends State<JournalScreen>
     }
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
-          child: Column(
-            children: <Widget>[
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10.0, bottom: 5.0),
-                    child: Text(
-                      'Hey ${_currentUserModel!.fullName?.split(" ").first ?? 'Viber'},',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.textSecondary.withValues(alpha: 0.9),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Text(
-                    _getStatusMessage(),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.normal,
+        // 1. Wrap the main content in a SingleChildScrollView
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 15.0,
+            ),
+            child: Column(
+              children: <Widget>[
+                // Top Section (remains the same)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10.0, bottom: 5.0),
+                  child: Text(
+                    'Hey ${_currentUserModel!.fullName?.split(" ").first ?? 'Viber'},',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w300,
+                      color: AppColors.textSecondary.withOpacity(0.9),
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  _buildUpgradeBanner(theme),
-                ],
-              ),
-              Expanded(
-                flex: 3,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    StreamBuilder<RecordingProgress>(
-                      stream: _progressStreamController.stream,
-                      initialData: RecordingProgress(Duration.zero, 0.0),
-                      builder: (context, snapshot) {
-                        final progress =
-                            snapshot.data ??
-                            RecordingProgress(Duration.zero, 0.0);
-                        return _buildVibeOrbUI(theme, progress);
-                      },
-                    ),
-                    // const SizedBox(height: 10),
-                    _buildActionButtons(theme),
-                  ],
                 ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        left: 4.0,
-                        bottom: 8.0,
-                        top: 10.0,
-                      ),
-                      child: Text(
-                        "Recent Vibes",
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    Expanded(child: _buildVibesList(theme)),
-                  ],
+                Text(
+                  _getStatusMessage(),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.normal,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            ],
+                _buildUpgradeBanner(theme),
+
+                // Orb Section
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 15.0,
+                  ), // Add padding for spacing
+                  child: StreamBuilder<RecordingProgress>(
+                    stream: _progressStreamController.stream,
+                    initialData: RecordingProgress(Duration.zero, 0.0),
+                    builder: (context, snapshot) {
+                      final progress =
+                          snapshot.data ??
+                          RecordingProgress(Duration.zero, 0.0);
+                      return _buildVibeOrbUI(theme, progress);
+                    },
+                  ),
+                ),
+                _buildActionButtons(theme),
+
+                // Recent Vibes Section
+                const SizedBox(height: 30),
+                Text(
+                  "Recent Vibes",
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildVibesList(
+                  theme,
+                ), // This will now work inside the scroll view
+              ],
+            ),
           ),
         ),
       ),
@@ -790,76 +784,73 @@ class _JournalScreenState extends State<JournalScreen>
       duration: const Duration(milliseconds: 300),
       opacity: showActions ? 1.0 : 0.0,
       child: showActions
-          ? Padding(
-              padding: const EdgeInsets.only(top: 25.0, bottom: 5.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Tooltip(
-                    message: "Discard",
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.delete_sweep_outlined,
-                        color: AppColors.textHint,
-                      ),
-                      iconSize: 32,
-                      onPressed: _discardRecording,
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Tooltip(
+                  message: "Discard",
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.delete_sweep_outlined,
+                      color: AppColors.textHint,
+                    ),
+                    iconSize: 32,
+                    onPressed: _discardRecording,
+                  ),
+                ),
+                const SizedBox(width: 25),
+                ElevatedButton.icon(
+                  icon: _isSavingVibe
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: AppColors.onPrimary,
+                          ),
+                        )
+                      : const Icon(Icons.cloud_upload_outlined, size: 22),
+                  label: const Text('Save Vibe'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 25),
-                  ElevatedButton.icon(
-                    icon: _isSavingVibe
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: AppColors.onPrimary,
-                            ),
-                          )
-                        : const Icon(Icons.cloud_upload_outlined, size: 22),
-                    label: const Text('Save Vibe'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.onPrimary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  onPressed: _isSavingVibe ? null : _saveVibe,
+                ),
+                const SizedBox(width: 25),
+                Tooltip(
+                  message: "Re-record",
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.replay_rounded,
+                      color: AppColors.textHint,
                     ),
-                    onPressed: _isSavingVibe ? null : _saveVibe,
+                    iconSize: 32,
+                    onPressed: () {
+                      _triggerHaptic(HapticsType.selection);
+                      _discardRecording();
+                    },
                   ),
-                  const SizedBox(width: 25),
-                  Tooltip(
-                    message: "Re-record",
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.replay_rounded,
-                        color: AppColors.textHint,
-                      ),
-                      iconSize: 32,
-                      onPressed: () {
-                        _triggerHaptic(HapticsType.selection);
-                        _discardRecording();
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             )
-          : const SizedBox(height: 79),
+          : null,
     );
   }
 
   Widget _buildVibesList(ThemeData theme) {
-    if (_currentUserModel == null) {
+    if (_currentUserModel == null)
       return const Center(child: CircularProgressIndicator());
-    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('vibes')
@@ -868,48 +859,49 @@ class _JournalScreenState extends State<JournalScreen>
           .limit(5)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
+        if (snapshot.hasError)
           return Center(
             child: Text(
               'Error: ${snapshot.error}',
               style: TextStyle(color: AppColors.error),
             ),
           );
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting)
           return const Center(
             child: CircularProgressIndicator(color: AppColors.secondary),
           );
-        }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
+          return const Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 30.0),
+              padding: EdgeInsets.symmetric(vertical: 30.0),
               child: Text(
                 "Your 5 most recent vibes will appear here.",
                 textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppColors.textHint,
-                ),
+                style: TextStyle(color: AppColors.textHint),
               ),
             ),
           );
         }
 
         final vibes = snapshot.data!.docs;
+
+        // **THE FIX IS HERE:**
         return ListView.builder(
           itemCount: vibes.length,
           padding: EdgeInsets.zero,
+          shrinkWrap:
+              true, // Tells the ListView to be only as tall as its content
+          physics:
+              const NeverScrollableScrollPhysics(), // Disables the ListView's own scrolling
           itemBuilder: (context, index) {
+            // ... The rest of your itemBuilder logic remains exactly the same
             final vibe = VibeModel.fromFirestore(
               vibes[index] as DocumentSnapshot<Map<String, dynamic>>,
             );
             final bool isActive = _currentlyPlayingOrLoadingId == vibe.id;
             final bool isLoading =
                 isActive &&
-                (_playerState?.processingState == ja.ProcessingState.loading ||
-                    _playerState?.processingState ==
-                        ja.ProcessingState.buffering);
+                _playerState?.processingState == ja.ProcessingState.loading;
             final bool isPlaying = isActive && _playerState?.playing == true;
 
             Widget trailingWidget;
@@ -945,13 +937,13 @@ class _JournalScreenState extends State<JournalScreen>
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0),
               color: isActive
-                  ? AppColors.primary.withValues(alpha: 0.1)
+                  ? AppColors.primary.withOpacity(0.1)
                   : AppColors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
                   color: isActive
-                      ? AppColors.primary.withValues(alpha: 0.5)
+                      ? AppColors.primary.withOpacity(0.5)
                       : Colors.transparent,
                   width: 1,
                 ),
@@ -1044,8 +1036,9 @@ class _JournalScreenState extends State<JournalScreen>
               ),
               onPressed: () {
                 _triggerHaptic(HapticsType.light);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Upgrade screen coming soon!')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UpgradeScreen()),
                 );
               },
             ),
