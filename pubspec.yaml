@@ -33,6 +33,10 @@ dependencies:
 
   collection: any
   firebase_messaging: ^15.2.7
+  flutter_local_notifications: ^19.2.1
+  local_auth: ^2.3.0
+  simple_animations: ^5.2.0
+  flutter_native_splash: ^2.4.6
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,3 +49,5 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/
+    - assets/images/
+    - assets/splash/

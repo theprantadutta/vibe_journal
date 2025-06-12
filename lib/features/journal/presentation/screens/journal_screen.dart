@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:permission_handler/permission_handler.dart';
@@ -84,6 +85,7 @@ class _JournalScreenState extends State<JournalScreen>
   @override
   void initState() {
     super.initState();
+    FlutterNativeSplash.remove();
     _recorder = AudioRecorder();
     _player = ja.AudioPlayer();
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/widgets/app_lifecycle_observer.dart';
 import '../screens/auth_screen.dart';
 import '../../../layout/main_app_layout.dart';
 import '../../../../config/theme/app_colors.dart';
@@ -22,8 +23,8 @@ class AuthGuard extends StatelessWidget {
           );
         }
         if (snapshot.hasData && snapshot.data != null) {
-          // User is logged in, show MainAppLayout
-          return const MainAppLayout();
+          // User is logged in, wrap the MainAppLayout with our gatekeeper
+          return AppLifecycleObserver(child: const MainAppLayout());
         }
         // User is not logged in
         return const AuthScreen();

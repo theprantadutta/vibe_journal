@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:vibe_journal/features/layout/main_app_layout.dart';
 import 'package:vibe_journal/features/legal/presentation/privacy_policy_content.dart';
 import 'package:vibe_journal/features/legal/presentation/terms_and_conditions_content.dart';
@@ -37,6 +38,12 @@ class _AuthScreenState extends State<AuthScreen> {
   // State for legal agreement checkboxes
   bool _agreedToTerms = false;
   bool _agreedToPolicy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FlutterNativeSplash.remove();
+  }
 
   @override
   void dispose() {
@@ -115,6 +122,11 @@ class _AuthScreenState extends State<AuthScreen> {
             'uid': userCredential.user!.uid,
             'plan': 'free',
             'cloudVibeCount': 0,
+            'notificationPreferences': {
+              'dailyReminderEnabled': true,
+              'streaksEnabled': true,
+              'mindfulMomentsEnabled': true,
+            },
           };
           await _firestore
               .collection('users')
