@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
 import '../../../../core/services/service_locator.dart';
+import '../../../../core/services/user_service.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
 import '../../../../config/theme/app_colors.dart';
@@ -83,13 +84,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
             .collection('users')
             .doc(currentUserAuth.uid)
             .get();
+        final userService = locator<UserService>();
         if (userDoc.exists) {
           final model = UserModel.fromFirestore(userDoc);
-          registerUserSession(model);
+          await userService.updateUser(model);
           _userModel = model;
         } else {
           FirebaseAuth.instance.signOut();
-          clearUserSession();
+          userService.clearUser();
         }
       }
     }

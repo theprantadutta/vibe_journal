@@ -13,6 +13,8 @@ import 'package:vibe_journal/features/premium/presentation/screens/upgrade_scree
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/services/user_service.dart';
+
 class PlayerStreamData {
   final Duration position;
   final Duration duration;
@@ -61,7 +63,8 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
             .get();
         if (doc.exists && mounted) {
           final model = UserModel.fromFirestore(doc);
-          registerUserSession(model);
+          final userService = locator<UserService>();
+          await userService.updateUser(model);
           setState(() => _userModel = model);
         }
       }

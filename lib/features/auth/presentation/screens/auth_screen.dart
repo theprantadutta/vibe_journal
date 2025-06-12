@@ -9,6 +9,7 @@ import 'package:vibe_journal/features/layout/main_app_layout.dart';
 import 'package:vibe_journal/features/legal/presentation/privacy_policy_content.dart';
 import 'package:vibe_journal/features/legal/presentation/terms_and_conditions_content.dart';
 import '../../../../config/theme/app_colors.dart';
+import '../../../../core/services/user_service.dart';
 import '../../domain/models/user_model.dart';
 import '../../../../core/services/service_locator.dart';
 
@@ -129,7 +130,8 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       if (userModel != null) {
-        registerUserSession(userModel);
+        final userService = locator<UserService>();
+        await userService.updateUser(userModel);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const MainAppLayout()),

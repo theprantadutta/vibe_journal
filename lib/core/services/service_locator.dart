@@ -1,5 +1,4 @@
 import 'package:get_it/get_it.dart';
-import '../../features/auth/domain/models/user_model.dart';
 import 'user_service.dart';
 
 final GetIt locator = GetIt.instance;
@@ -10,20 +9,20 @@ void setupLocator() {
   locator.registerSingleton<UserService>(UserService());
 }
 
-// Helper functions to manage UserModel in GetIt
-void registerUserSession(UserModel userModel) {
-  if (locator.isRegistered<UserModel>()) {
-    locator.unregister<UserModel>();
-  }
-  locator.registerSingleton<UserModel>(userModel);
-  print(
-    "✅ UserModel registered: ${userModel.fullName} (Plan: ${userModel.plan})",
-  );
-}
+// // Helper functions to manage UserModel in GetIt
+// void registerUserSession(UserModel userModel) {
+//   if (locator.isRegistered<UserModel>()) {
+//     locator.unregister<UserModel>();
+//   }
+//   locator.registerSingleton<UserModel>(userModel);
+//   print(
+//     "✅ UserModel registered: ${userModel.fullName} (Plan: ${userModel.plan})",
+//   );
+// }
 
-void clearUserSession() {
-  if (locator.isRegistered<UserModel>()) {
-    locator.unregister<UserModel>();
-    print("🗑️ UserModel session cleared.");
-  }
-}
+// void clearUserSession() {
+//   if (locator.isRegistered<UserModel>()) {
+//     locator.unregister<UserModel>();
+//     print("🗑️ UserModel session cleared.");
+//   }
+// }

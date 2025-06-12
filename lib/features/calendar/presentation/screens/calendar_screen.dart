@@ -223,233 +223,237 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final textTheme = theme.textTheme;
 
     return Scaffold(
-      body: Column(
-        children: [
-          TableCalendar<VibeModel>(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
-            focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            onDaySelected: _onDaySelected,
-            onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay;
-              _fetchVibesForMonth(focusedDay);
-            },
-            eventLoader: _getVibesForDay,
-            calendarFormat: CalendarFormat.month,
-            startingDayOfWeek: StartingDayOfWeek.monday,
-            headerStyle: HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-              titleTextStyle: textTheme.titleLarge!.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              leftChevronIcon: const Icon(
-                Icons.chevron_left,
-                color: AppColors.textSecondary,
-              ),
-              rightChevronIcon: const Icon(
-                Icons.chevron_right,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            calendarStyle: CalendarStyle(
-              defaultTextStyle: textTheme.bodyMedium!.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              weekendTextStyle: textTheme.bodyMedium!.copyWith(
-                color: AppColors.secondary.withValues(alpha: 0.8),
-              ),
-              outsideTextStyle: textTheme.bodyMedium!.copyWith(
-                color: AppColors.textDisabled,
-              ),
-              todayDecoration: BoxDecoration(
-                color: AppColors.secondary.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-              ),
-              todayTextStyle: textTheme.bodyMedium!.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-              selectedDecoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              selectedTextStyle: textTheme.bodyMedium!.copyWith(
-                color: AppColors.onPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            calendarBuilders: CalendarBuilders(
-              prioritizedBuilder: (context, day, focusedDay) {
-                final vibes = _getVibesForDay(day);
-                if (vibes.isNotEmpty) {
-                  final dominantMood = _getDominantMoodForDay(vibes);
-                  final moodColor =
-                      AppColors.moodColors[dominantMood] ?? Colors.transparent;
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: moodColor.withValues(alpha: 0.25),
-                      shape: BoxShape.circle,
-                    ),
-                    margin: const EdgeInsets.all(6.0),
-                    child: Center(
-                      child: Text(
-                        day.day.toString(),
-                        style: textTheme.bodyMedium!.copyWith(
-                          color: moodColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                return null;
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: _isLoading
+          ? Center(child: const CircularProgressIndicator())
+          : Column(
               children: [
-                Text(
-                  _selectedDay != null
-                      ? DateFormat.yMMMMd().format(_selectedDay!)
-                      : '',
-                  style: textTheme.titleMedium,
-                ),
-                if (_isLoading)
-                  const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primary,
+                TableCalendar<VibeModel>(
+                  firstDay: DateTime.utc(2020, 1, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  focusedDay: _focusedDay,
+                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                  onDaySelected: _onDaySelected,
+                  onPageChanged: (focusedDay) {
+                    _focusedDay = focusedDay;
+                    _fetchVibesForMonth(focusedDay);
+                  },
+                  eventLoader: _getVibesForDay,
+                  calendarFormat: CalendarFormat.month,
+                  startingDayOfWeek: StartingDayOfWeek.monday,
+                  headerStyle: HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    titleTextStyle: textTheme.titleLarge!.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    leftChevronIcon: const Icon(
+                      Icons.chevron_left,
+                      color: AppColors.textSecondary,
+                    ),
+                    rightChevronIcon: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
                     ),
                   ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-
-          Expanded(
-            child: _selectedDayVibes.isEmpty
-                ? Center(
-                    child: Text(
-                      "No vibes recorded on this day.",
-                      style: textTheme.titleMedium?.copyWith(
-                        color: AppColors.textHint,
-                      ),
+                  calendarStyle: CalendarStyle(
+                    defaultTextStyle: textTheme.bodyMedium!.copyWith(
+                      color: AppColors.textSecondary,
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12.0),
-                    itemCount: _selectedDayVibes.length,
-                    itemBuilder: (context, index) {
-                      final vibe = _selectedDayVibes[index];
-                      final isActive = _currentlyPlayingOrLoadingId == vibe.id;
-                      final isLoading =
-                          isActive &&
-                          (_playerState?.processingState ==
-                                  ja.ProcessingState.loading ||
-                              _playerState?.processingState ==
-                                  ja.ProcessingState.buffering);
-                      final isPlaying =
-                          isActive && _playerState?.playing == true;
-
-                      Widget trailingWidget;
-                      if (isLoading) {
-                        trailingWidget = const SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: AppColors.primary,
+                    weekendTextStyle: textTheme.bodyMedium!.copyWith(
+                      color: AppColors.secondary.withValues(alpha: 0.8),
+                    ),
+                    outsideTextStyle: textTheme.bodyMedium!.copyWith(
+                      color: AppColors.textDisabled,
+                    ),
+                    todayDecoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    todayTextStyle: textTheme.bodyMedium!.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    selectedDecoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    selectedTextStyle: textTheme.bodyMedium!.copyWith(
+                      color: AppColors.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  calendarBuilders: CalendarBuilders(
+                    prioritizedBuilder: (context, day, focusedDay) {
+                      final vibes = _getVibesForDay(day);
+                      if (vibes.isNotEmpty) {
+                        final dominantMood = _getDominantMoodForDay(vibes);
+                        final moodColor =
+                            AppColors.moodColors[dominantMood] ??
+                            Colors.transparent;
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: moodColor.withValues(alpha: 0.25),
+                            shape: BoxShape.circle,
                           ),
-                        );
-                      } else if (isPlaying) {
-                        trailingWidget = IconButton(
-                          icon: const Icon(
-                            Icons.pause_circle_filled_rounded,
-                            color: AppColors.primary,
-                            size: 32,
-                          ),
-                          onPressed: () => _handlePlayback(vibe),
-                        );
-                      } else {
-                        trailingWidget = IconButton(
-                          icon: const Icon(
-                            Icons.play_circle_filled_rounded,
-                            color: AppColors.textSecondary,
-                            size: 32,
-                          ),
-                          onPressed: () => _handlePlayback(vibe),
-                        );
-                      }
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 6.0),
-                        color: isActive
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : AppColors.surface,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: isActive
-                                ? AppColors.primary.withValues(alpha: 0.5)
-                                : Colors.transparent,
-                            width: 1,
-                          ),
-                        ),
-                        child: ListTile(
-                          onTap: () {
-                            // Navigate to the Detail Screen
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    VibeDetailScreen(vibe: vibe),
+                          margin: const EdgeInsets.all(6.0),
+                          child: Center(
+                            child: Text(
+                              day.day.toString(),
+                              style: textTheme.bodyMedium!.copyWith(
+                                color: moodColor,
+                                fontWeight: FontWeight.bold,
                               ),
-                            );
-                          },
-                          leading: Icon(
-                            isPlaying
-                                ? Icons.graphic_eq_rounded
-                                : Icons.bubble_chart_rounded,
-                            color:
-                                AppColors.moodColors[vibe.mood] ??
-                                AppColors.textHint,
-                            size: 30,
-                          ),
-                          title: Text(
-                            DateFormat(
-                              'hh:mm a',
-                            ).format(vibe.createdAt.toDate()),
-                            style: textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          subtitle: Text(
-                            vibe.transcription.isEmpty
-                                ? 'Duration: ${_formatDuration(vibe.duration)}'
-                                : '"${vibe.transcription}"',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.bodySmall?.copyWith(
+                        );
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _selectedDay != null
+                            ? DateFormat.yMMMMd().format(_selectedDay!)
+                            : '',
+                        style: textTheme.titleMedium,
+                      ),
+                      if (_isLoading)
+                        const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+
+                Expanded(
+                  child: _selectedDayVibes.isEmpty
+                      ? Center(
+                          child: Text(
+                            "No vibes recorded on this day.",
+                            style: textTheme.titleMedium?.copyWith(
                               color: AppColors.textHint,
                             ),
                           ),
-                          trailing: trailingWidget,
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(12.0),
+                          itemCount: _selectedDayVibes.length,
+                          itemBuilder: (context, index) {
+                            final vibe = _selectedDayVibes[index];
+                            final isActive =
+                                _currentlyPlayingOrLoadingId == vibe.id;
+                            final isLoading =
+                                isActive &&
+                                (_playerState?.processingState ==
+                                        ja.ProcessingState.loading ||
+                                    _playerState?.processingState ==
+                                        ja.ProcessingState.buffering);
+                            final isPlaying =
+                                isActive && _playerState?.playing == true;
+
+                            Widget trailingWidget;
+                            if (isLoading) {
+                              trailingWidget = const SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppColors.primary,
+                                ),
+                              );
+                            } else if (isPlaying) {
+                              trailingWidget = IconButton(
+                                icon: const Icon(
+                                  Icons.pause_circle_filled_rounded,
+                                  color: AppColors.primary,
+                                  size: 32,
+                                ),
+                                onPressed: () => _handlePlayback(vibe),
+                              );
+                            } else {
+                              trailingWidget = IconButton(
+                                icon: const Icon(
+                                  Icons.play_circle_filled_rounded,
+                                  color: AppColors.textSecondary,
+                                  size: 32,
+                                ),
+                                onPressed: () => _handlePlayback(vibe),
+                              );
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 6.0),
+                              color: isActive
+                                  ? AppColors.primary.withValues(alpha: 0.1)
+                                  : AppColors.surface,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                  color: isActive
+                                      ? AppColors.primary.withValues(alpha: 0.5)
+                                      : Colors.transparent,
+                                  width: 1,
+                                ),
+                              ),
+                              child: ListTile(
+                                onTap: () {
+                                  // Navigate to the Detail Screen
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          VibeDetailScreen(vibe: vibe),
+                                    ),
+                                  );
+                                },
+                                leading: Icon(
+                                  isPlaying
+                                      ? Icons.graphic_eq_rounded
+                                      : Icons.bubble_chart_rounded,
+                                  color:
+                                      AppColors.moodColors[vibe.mood] ??
+                                      AppColors.textHint,
+                                  size: 30,
+                                ),
+                                title: Text(
+                                  DateFormat(
+                                    'hh:mm a',
+                                  ).format(vibe.createdAt.toDate()),
+                                  style: textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  vibe.transcription.isEmpty
+                                      ? 'Duration: ${_formatDuration(vibe.duration)}'
+                                      : '"${vibe.transcription}"',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textHint,
+                                  ),
+                                ),
+                                trailing: trailingWidget,
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+                ),
+              ],
+            ),
     );
   }
 }

@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.vibe_journal"
+    namespace = "com.pranta.vibejournal"
     compileSdk = flutter.compileSdkVersion
     // ndkVersion = flutter.ndkVersion
     ndkVersion = "27.0.12077973"

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../features/auth/domain/models/user_model.dart';
 import '../../features/premium/domain/models/plan_details_model.dart';
+import 'notification_service.dart';
 import 'service_locator.dart';
 
 class UserService {
@@ -21,16 +23,26 @@ class UserService {
   Future<void> updateUser(UserModel user) async {
     _currentUser = user;
 
-    // After getting the user, fetch their plan details
-    await _fetchPlanDetails(user.plan);
-
-    // Register the user model itself in the locator for direct access if needed
     if (locator.isRegistered<UserModel>()) locator.unregister<UserModel>();
     locator.registerSingleton<UserModel>(user);
 
-    print(
-      "✅ UserService updated for: ${user.fullName} with ${user.plan} plan.",
-    );
+    if (kDebugMode) {
+      print(
+        "✅ UserService updated & UserModel registered in GetIt: ${user.fullName}",
+      );
+    }
+
+    // After the user session is ready, we kick off notification setup.
+    try {
+      await NotificationService().initNotifications();
+    } catch (e) {
+      if (kDebugMode) {
+        print("🚨 Error initializing notifications: $e");
+      }
+    }
+
+    // After getting the user, fetch their plan details
+    await _fetchPlanDetails(user.plan);
   }
 
   Future<void> _fetchPlanDetails(String planId) async {
@@ -43,7 +55,9 @@ class UserService {
         _currentPlanDetails = PlanDetailsModel.fromFirestore(planDoc);
       }
     } catch (e) {
-      print("Error fetching plan details: $e");
+      if (kDebugMode) {
+        print("Error fetching plan details: $e");
+      }
       // Could use a default fallback plan here if fetching fails
     }
   }
@@ -54,6 +68,8 @@ class UserService {
     if (locator.isRegistered<UserModel>()) {
       locator.unregister<UserModel>();
     }
-    print("🗑️ UserService data cleared.");
+    if (kDebugMode) {
+      print("🗑️ UserService data cleared.");
+    }
   }
 }

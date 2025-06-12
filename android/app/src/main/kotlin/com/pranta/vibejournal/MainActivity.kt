@@ -1,4 +1,4 @@
-package com.example.vibe_journal
+package com.pranta.vibejournal
 
 import io.flutter.embedding.android.FlutterActivity
 

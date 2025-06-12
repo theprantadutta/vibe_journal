@@ -7,6 +7,7 @@ import 'package:vibe_journal/features/premium/presentation/screens/upgrade_scree
 import 'package:vibe_journal/features/account/presentation/screens/profile_screen.dart';
 
 import '../../../legal/presentation/privacy_policy_content.dart';
+import 'notification_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -56,16 +57,23 @@ class SettingsScreen extends StatelessWidget {
           _buildSectionHeader(context, "Preferences"),
           _buildSettingsGroup(
             children: [
-              SwitchListTile(
-                secondary: const Icon(
+              ListTile(
+                leading: const Icon(
                   Icons.notifications_outlined,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('Notifications'),
-                subtitle: const Text('Receive reminders and updates'),
-                value: false, // Placeholder value
-                onChanged: (bool value) {
-                  // TODO: Implement notification preference logic
+                title: const Text('Notification Settings'),
+                subtitle: const Text('Manage your reminders and alerts'),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                ),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationSettingsScreen(),
+                    ),
+                  );
                 },
               ),
               const Divider(height: 1, indent: 16, endIndent: 16),

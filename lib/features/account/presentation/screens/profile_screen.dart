@@ -180,7 +180,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        clearUserSession(); // From service_locator.dart
+        final userService = locator<UserService>();
+        userService.clearUser();
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) Navigator.of(context).pop(); // Pop loading dialog

@@ -9,6 +9,8 @@ import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
 
+import '../../../../core/services/user_service.dart';
+
 class ChatMessage {
   final String text;
   final bool isFromUser;
@@ -62,14 +64,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             .collection('users')
             .doc(currentUserAuth.uid)
             .get();
+        final userService = locator<UserService>();
         if (userDoc.exists) {
           final model = UserModel.fromFirestore(userDoc);
-          registerUserSession(model); // Re-register it so other screens have it
+          await userService.updateUser(model);
           _userModel = model;
         } else {
           // Critical error state: user exists in Auth but not DB. Sign out for safety.
           await FirebaseAuth.instance.signOut();
-          clearUserSession();
+          userService.clearUser();
         }
       }
     }

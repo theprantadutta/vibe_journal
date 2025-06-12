@@ -432,7 +432,8 @@ class _JournalScreenState extends State<JournalScreen>
       final updatedUserDoc = await userDocRef.get();
       if (updatedUserDoc.exists && mounted) {
         final updatedUserModel = UserModel.fromFirestore(updatedUserDoc);
-        registerUserSession(updatedUserModel);
+        final userService = locator<UserService>();
+        await userService.updateUser(updatedUserModel);
         setState(() {
           _currentUserModel = updatedUserModel;
         });
@@ -515,6 +516,7 @@ class _JournalScreenState extends State<JournalScreen>
   Future<void> _loadUserModelAndBannerState() async {
     if (locator.isRegistered<UserModel>()) {
       final userModel = locator<UserModel>();
+      await locator<UserService>().updateUser(userModel);
       if (!mounted) return;
       setState(() {
         _currentUserModel = userModel;
@@ -527,9 +529,10 @@ class _JournalScreenState extends State<JournalScreen>
             .collection('users')
             .doc(currentUserAuth.uid)
             .get();
+        final userService = locator<UserService>();
         if (userDoc.exists) {
           final model = UserModel.fromFirestore(userDoc);
-          registerUserSession(model);
+          await userService.updateUser(model);
           if (!mounted) return;
           setState(() {
             _currentUserModel = model;
@@ -537,7 +540,7 @@ class _JournalScreenState extends State<JournalScreen>
           if (model.plan == 'free') _checkShowUpgradeBanner();
         } else {
           FirebaseAuth.instance.signOut();
-          clearUserSession();
+          userService.clearUser();
         }
       }
     }
@@ -655,9 +658,7 @@ class _JournalScreenState extends State<JournalScreen>
                   ),
                 ),
                 const SizedBox(height: 10),
-                _buildVibesList(
-                  theme,
-                ), // This will now work inside the scroll view
+                _buildVibesList(theme),
               ],
             ),
           ),
@@ -850,8 +851,9 @@ class _JournalScreenState extends State<JournalScreen>
   }
 
   Widget _buildVibesList(ThemeData theme) {
-    if (_currentUserModel == null)
+    if (_currentUserModel == null) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -861,17 +863,19 @@ class _JournalScreenState extends State<JournalScreen>
           .limit(5)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError)
+        if (snapshot.hasError) {
           return Center(
             child: Text(
               'Error: ${snapshot.error}',
               style: TextStyle(color: AppColors.error),
             ),
           );
-        if (snapshot.connectionState == ConnectionState.waiting)
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(color: AppColors.secondary),
           );
+        }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(
             child: Padding(
