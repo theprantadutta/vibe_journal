@@ -87,7 +87,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     if (productDetailResponse.productDetails.isEmpty) {
       setState(() {
         _errorMessage =
-            'No subscription plans could be found. This may be a temporary issue or they may not be configured in the Play Store yet.';
+            'No subscription plans could be found. This may be a temporary issue, rest assured we are actively working to resolve it.';
         _products = [];
         _isLoading = false;
       });

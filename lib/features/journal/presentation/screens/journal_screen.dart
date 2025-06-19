@@ -2,18 +2,19 @@
 
 import 'dart:async';
 import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'package:record/record.dart';
-import 'package:just_audio/just_audio.dart' as ja;
-import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:intl/intl.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
+import 'package:intl/intl.dart';
+import 'package:just_audio/just_audio.dart' as ja;
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vibe_journal/core/services/user_service.dart';
 import 'package:vibe_journal/features/journal/presentation/screens/vibe_detail_screen.dart';
@@ -21,6 +22,7 @@ import 'package:vibe_journal/features/premium/presentation/screens/upgrade_scree
     show UpgradeScreen;
 
 import '../../../../config/theme/app_colors.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/service_locator.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
@@ -104,6 +106,8 @@ class _JournalScreenState extends State<JournalScreen>
         curve: Curves.easeInOut,
       ),
     );
+
+    Future.microtask(() => NotificationService().initNotifications());
   }
 
   @override

@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+
 import '../../features/auth/domain/models/user_model.dart';
 import '../../features/premium/domain/models/plan_details_model.dart';
-import 'notification_service.dart';
 import 'service_locator.dart';
 
 class UserService {
@@ -32,14 +32,13 @@ class UserService {
       );
     }
 
-    // After the user session is ready, we kick off notification setup.
-    try {
-      await NotificationService().initNotifications();
-    } catch (e) {
-      if (kDebugMode) {
-        print("🚨 Error initializing notifications: $e");
-      }
-    }
+    // try {
+    //   await NotificationService().initNotifications();
+    // } catch (e) {
+    //   if (kDebugMode) {
+    //     print("🚨 Error initializing notifications: $e");
+    //   }
+    // }
 
     // After getting the user, fetch their plan details
     await _fetchPlanDetails(user.plan);
