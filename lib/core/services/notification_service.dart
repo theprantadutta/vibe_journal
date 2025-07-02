@@ -94,7 +94,7 @@ class NotificationService {
   /// Sets up the Android notification channel
   Future<void> _setupNotificationChannel() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'high_importance_channel', // Must match AndroidManifest.xml
+      'vibe_journal_channel', // Must match AndroidManifest.xml
       'High Importance Notifications',
       description: 'Used for important notifications like daily reminders.',
       importance: Importance.max, // Makes notifications show as heads-up
@@ -130,7 +130,7 @@ class NotificationService {
         notification.body,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            'high_importance_channel', // Same as channel ID
+            'vibe_journal_channel', // Same as channel ID
             'High Importance Notifications',
             channelDescription: 'Used for important notifications',
             icon: '@mipmap/ic_launcher', // Your app's launcher icon

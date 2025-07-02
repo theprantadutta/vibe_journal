@@ -107,7 +107,11 @@ class _JournalScreenState extends State<JournalScreen>
       ),
     );
 
-    Future.microtask(() => NotificationService().initNotifications());
+    // Future.microtask(() => NotificationService().initNotifications());
+
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => NotificationService().initNotifications(),
+    );
   }
 
   @override
