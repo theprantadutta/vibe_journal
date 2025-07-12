@@ -8,11 +8,11 @@ VibeJournal is a modern, AI-powered personal audio journal designed to help you 
 
 | Journal Screen                                        | Calendar "Mood Map"                                   | Insights Dashboard                                  |
 | :---------------------------------------------------- | :---------------------------------------------------- | :-------------------------------------------------- |
-| ![Journal Screen](./screenshots/journal_screen.jpg)   | ![Calendar Screen](./screenshots/calender_screen.jpg) | ![Insights Screen](./screenshots/insights_screen.jpg) |
+| ![Journal Screen](./screenshots/2_journal_screen.jpg)   | ![Calendar Screen](./screenshots/3_calender_screen.jpg) | ![Insights Screen](./screenshots/4_insights_screen.jpg) |
 
 | AI Assistant Chat                                               | User Profile                                             | Upgrade to Premium                                   |
 | :-------------------------------------------------------------- | :------------------------------------------------------- | :--------------------------------------------------- |
-| ![AI Assistant Screen](./screenshots/ai_assistant_screen.jpg) | ![User Profile Screen](./screenshots/profile_screen.jpg) | ![Upgrade Screen](./screenshots/upgrade_screen.jpg)  |
+| ![AI Assistant Screen](./screenshots/5_ai_assistant_screen.jpg) | ![User Profile Screen](./screenshots/6_profile_screen.jpg) | ![Upgrade Screen](./screenshots/8_upgrade_screen.jpg)  |
 
 ---
 
