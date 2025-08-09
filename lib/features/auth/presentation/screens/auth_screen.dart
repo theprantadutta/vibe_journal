@@ -1,18 +1,19 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:vibe_journal/features/layout/main_app_layout.dart';
 import 'package:vibe_journal/features/legal/presentation/privacy_policy_content.dart';
 import 'package:vibe_journal/features/legal/presentation/terms_and_conditions_content.dart';
+
 import '../../../../config/theme/app_colors.dart';
+import '../../../../core/services/service_locator.dart';
 import '../../../../core/services/user_service.dart';
 import '../../domain/models/user_model.dart';
-import '../../../../core/services/service_locator.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -225,11 +226,7 @@ class _AuthScreenState extends State<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                const Icon(
-                  Icons.vibration,
-                  size: 80,
-                  color: AppColors.secondary,
-                ),
+                Image.asset('assets/images/logo.png', height: 80),
                 const SizedBox(height: 20),
                 Text(
                   _isLoginMode ? 'Welcome Back!' : 'Create VibeJournal Account',

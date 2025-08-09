@@ -12,26 +12,26 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  firebase_core: ^3.13.1
-  firebase_auth: ^5.5.4
-  cloud_firestore: ^5.6.8
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
   record: ^6.0.0
   intl: ^0.20.2
   path_provider: ^2.1.5
   haptic_feedback: ^0.5.1+1
   get_it: ^8.0.3
   shared_preferences: ^2.5.3
-  firebase_storage: ^12.4.6
+  firebase_storage: ^13.0.0
   table_calendar: ^3.2.0
   just_audio: ^0.10.4
   flutter_sound: ^9.28.0
   fl_chart: ^1.0.0
   in_app_purchase: ^3.2.3
-  cloud_functions: ^5.5.1
+  cloud_functions: ^6.0.0
   rxdart: ^0.28.0
 
   collection: any
-  firebase_messaging: ^15.2.7
+  firebase_messaging: ^16.0.0
   flutter_local_notifications: ^19.2.1
   local_auth: ^2.3.0
   simple_animations: ^5.2.0
