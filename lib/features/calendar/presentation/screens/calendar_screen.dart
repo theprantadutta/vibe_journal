@@ -10,8 +10,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../config/theme/app_colors.dart';
+import '../../../../config/theme/app_spacing.dart';
+import '../../../../config/theme/app_animations.dart';
+import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/sound_service.dart';
+import '../../../../core/widgets/animated_card.dart';
 import '../../../journal/domain/models/vibe_model.dart';
 import '../../../journal/presentation/screens/vibe_detail_screen.dart';
 
@@ -24,6 +30,8 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   late final ja.AudioPlayer _player;
+  final _hapticService = HapticService();
+  final _soundService = SoundService();
 
   // State for calendar and data
   final LinkedHashMap<DateTime, List<VibeModel>> _vibesByDay =
@@ -135,6 +143,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
     if (!isSameDay(_selectedDay, selectedDay)) {
+      _hapticService.dateSelection(); // Add haptic feedback
       if (_player.playing) _player.stop(); // Stop playback when changing day
       setState(() {
         _selectedDay = selectedDay;
@@ -146,6 +155,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _handlePlayback(VibeModel vibe) async {
+    _hapticService.audioPlayPause(); // Add haptic feedback
     final vibeId = vibe.id;
     final storagePath = vibe.audioPath;
 
@@ -176,10 +186,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (kDebugMode) {
         print("Error playing vibe: $e");
       }
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Error: Could not play audio."),
-          backgroundColor: AppColors.error,
+        SnackBar(
+          content: const Text("Error: Could not play audio."),
+          backgroundColor: AppColors.getError(isDark),
         ),
       );
       if (mounted) setState(() => _currentlyPlayingOrLoadingId = null);
@@ -220,6 +231,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final textTheme = theme.textTheme;
 
     return Scaffold(
@@ -244,41 +256,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     formatButtonVisible: false,
                     titleCentered: true,
                     titleTextStyle: textTheme.titleLarge!.copyWith(
-                      color: AppColors.textPrimary,
+                      color: AppColors.getTextPrimary(isDark),
                     ),
-                    leftChevronIcon: const Icon(
+                    leftChevronIcon: Icon(
                       Icons.chevron_left,
-                      color: AppColors.textSecondary,
+                      color: AppColors.getTextSecondary(isDark),
                     ),
-                    rightChevronIcon: const Icon(
+                    rightChevronIcon: Icon(
                       Icons.chevron_right,
-                      color: AppColors.textSecondary,
+                      color: AppColors.getTextSecondary(isDark),
                     ),
                   ),
                   calendarStyle: CalendarStyle(
                     defaultTextStyle: textTheme.bodyMedium!.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.getTextSecondary(isDark),
                     ),
                     weekendTextStyle: textTheme.bodyMedium!.copyWith(
-                      color: AppColors.secondary.withValues(alpha: 0.8),
+                      color: AppColors.getSecondary(isDark).withValues(alpha: 0.8),
                     ),
                     outsideTextStyle: textTheme.bodyMedium!.copyWith(
-                      color: AppColors.textDisabled,
+                      color: AppColors.getTextDisabled(isDark),
                     ),
                     todayDecoration: BoxDecoration(
-                      color: AppColors.secondary.withValues(alpha: 0.3),
+                      color: AppColors.getSecondary(isDark).withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                     ),
                     todayTextStyle: textTheme.bodyMedium!.copyWith(
-                      color: AppColors.textPrimary,
+                      color: AppColors.getTextPrimary(isDark),
                       fontWeight: FontWeight.bold,
                     ),
-                    selectedDecoration: const BoxDecoration(
-                      color: AppColors.primary,
+                    selectedDecoration: BoxDecoration(
+                      color: AppColors.getPrimary(isDark),
                       shape: BoxShape.circle,
                     ),
                     selectedTextStyle: textTheme.bodyMedium!.copyWith(
-                      color: AppColors.onPrimary,
+                      color: AppColors.getOnPrimary(isDark),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -287,9 +299,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       final vibes = _getVibesForDay(day);
                       if (vibes.isNotEmpty) {
                         final dominantMood = _getDominantMoodForDay(vibes);
-                        final moodColor =
-                            AppColors.moodColors[dominantMood] ??
-                            Colors.transparent;
+                        final moodColor = AppColors.getMoodColor(dominantMood, isDark);
                         return Container(
                           decoration: BoxDecoration(
                             color: moodColor.withValues(alpha: 0.25),
@@ -312,9 +322,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPaddingHorizontal,
+                    vertical: AppSpacing.elementSpacing,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -326,12 +336,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         style: textTheme.titleMedium,
                       ),
                       if (_isLoading)
-                        const SizedBox(
+                        SizedBox(
                           height: 16,
                           width: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppColors.primary,
+                            color: AppColors.getPrimary(isDark),
                           ),
                         ),
                     ],
@@ -345,12 +355,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           child: Text(
                             "No vibes recorded on this day.",
                             style: textTheme.titleMedium?.copyWith(
-                              color: AppColors.textHint,
+                              color: AppColors.getTextHint(isDark),
                             ),
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.all(12.0),
+                          padding: EdgeInsets.all(AppSpacing.md),
                           itemCount: _selectedDayVibes.length,
                           itemBuilder: (context, index) {
                             final vibe = _selectedDayVibes[index];
@@ -367,65 +377,63 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                             Widget trailingWidget;
                             if (isLoading) {
-                              trailingWidget = const SizedBox(
+                              trailingWidget = SizedBox(
                                 width: 32,
                                 height: 32,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
-                                  color: AppColors.primary,
+                                  color: AppColors.getPrimary(isDark),
                                 ),
                               );
                             } else if (isPlaying) {
                               trailingWidget = IconButton(
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.pause_circle_filled_rounded,
-                                  color: AppColors.primary,
+                                  color: AppColors.getPrimary(isDark),
                                   size: 32,
                                 ),
                                 onPressed: () => _handlePlayback(vibe),
                               );
                             } else {
                               trailingWidget = IconButton(
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.play_circle_filled_rounded,
-                                  color: AppColors.textSecondary,
+                                  color: AppColors.getTextSecondary(isDark),
                                   size: 32,
                                 ),
                                 onPressed: () => _handlePlayback(vibe),
                               );
                             }
 
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 6.0),
+                            return AnimatedCard(
+                              margin: EdgeInsets.symmetric(vertical: AppSpacing.marginXs + 2),
                               color: isActive
-                                  ? AppColors.primary.withValues(alpha: 0.1)
-                                  : AppColors.surface,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(
-                                  color: isActive
-                                      ? AppColors.primary.withValues(alpha: 0.5)
-                                      : Colors.transparent,
-                                  width: 1,
-                                ),
+                                  ? AppColors.getPrimary(isDark).withValues(alpha: 0.1)
+                                  : AppColors.getSurface(isDark),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                              border: Border.all(
+                                color: isActive
+                                    ? AppColors.getPrimary(isDark).withValues(alpha: 0.5)
+                                    : Colors.transparent,
+                                width: 1,
                               ),
+                              padding: EdgeInsets.zero,
+                              onTap: () {
+                                _hapticService.light();
+                                // Navigate to the Detail Screen
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        VibeDetailScreen(vibe: vibe),
+                                  ),
+                                );
+                              },
                               child: ListTile(
-                                onTap: () {
-                                  // Navigate to the Detail Screen
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          VibeDetailScreen(vibe: vibe),
-                                    ),
-                                  );
-                                },
                                 leading: Icon(
                                   isPlaying
                                       ? Icons.graphic_eq_rounded
                                       : Icons.bubble_chart_rounded,
-                                  color:
-                                      AppColors.moodColors[vibe.mood] ??
-                                      AppColors.textHint,
+                                  color: AppColors.getMoodColor(vibe.mood, isDark),
                                   size: 30,
                                 ),
                                 title: Text(
@@ -443,11 +451,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: textTheme.bodySmall?.copyWith(
-                                    color: AppColors.textHint,
+                                    color: AppColors.getTextHint(isDark),
                                   ),
                                 ),
                                 trailing: trailingWidget,
                               ),
+                            ).animate().fadeIn(
+                              duration: AppAnimations.fast,
+                              delay: AppAnimations.staggerDelayFor(index),
+                            ).slideY(
+                              begin: 0.2,
+                              end: 0,
+                              duration: AppAnimations.fast,
+                              delay: AppAnimations.staggerDelayFor(index),
                             );
                           },
                         ),

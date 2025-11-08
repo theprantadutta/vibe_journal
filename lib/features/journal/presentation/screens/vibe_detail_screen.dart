@@ -2,10 +2,17 @@ import 'dart:async';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:intl/intl.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
+import 'package:vibe_journal/config/theme/app_spacing.dart';
+import 'package:vibe_journal/config/theme/app_animations.dart';
+import 'package:vibe_journal/core/services/haptic_service.dart';
+import 'package:vibe_journal/core/services/sound_service.dart';
+import 'package:vibe_journal/core/widgets/animated_card.dart';
+import 'package:vibe_journal/core/widgets/animated_button.dart';
 import 'package:vibe_journal/features/journal/domain/models/vibe_model.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
@@ -39,6 +46,9 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
   // State variable for the user model
   UserModel? _userModel;
+
+  final _hapticService = HapticService();
+  final _soundService = SoundService();
 
   @override
   void initState() {
@@ -88,10 +98,11 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     } catch (e) {
       print("Error setting up player: $e");
       if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text("Error: Could not load audio."),
-            backgroundColor: AppColors.error,
+            backgroundColor: AppColors.getError(isDark),
           ),
         );
       }
@@ -142,234 +153,237 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final vibeDate = widget.vibe.createdAt.toDate();
 
     return Scaffold(
       appBar: AppBar(
         title: Text(DateFormat('MMMM d, yyyy').format(vibeDate)),
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.getSurface(isDark),
       ),
       body: _userModel == null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeaderCard(theme),
-                  const SizedBox(height: 20),
-                  _buildPlayerCard(theme),
-                  const SizedBox(height: 20),
-                  _buildTranscriptionCard(theme),
-                  const SizedBox(height: 20),
+                  _buildHeaderCard(theme, isDark)
+                      .animate()
+                      .fadeIn(duration: AppAnimations.normal)
+                      .slideY(begin: 0.2, end: 0),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildPlayerCard(theme, isDark)
+                      .animate()
+                      .fadeIn(duration: AppAnimations.normal, delay: 100.ms)
+                      .slideY(begin: 0.2, end: 0),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildTranscriptionCard(theme, isDark)
+                      .animate()
+                      .fadeIn(duration: AppAnimations.normal, delay: 150.ms)
+                      .slideY(begin: 0.2, end: 0),
+                  const SizedBox(height: AppSpacing.lg),
                   _buildAiFeedbackSection(
                     theme,
-                  ), // This will now check for premium
+                    isDark,
+                  )
+                      .animate()
+                      .fadeIn(duration: AppAnimations.normal, delay: 200.ms)
+                      .slideY(begin: 0.2, end: 0), // This will now check for premium
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildHeaderCard(ThemeData theme) {
-    return Card(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Icon(
-              Icons.bubble_chart_rounded,
-              color:
-                  AppColors.moodColors[widget.vibe.mood] ?? AppColors.textHint,
-              size: 40,
-            ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.vibe.mood.toUpperCase(),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color:
-                        AppColors.moodColors[widget.vibe.mood] ??
-                        AppColors.textHint,
-                    fontWeight: FontWeight.bold,
-                  ),
+  Widget _buildHeaderCard(ThemeData theme, bool isDark) {
+    return AnimatedCard(
+      child: Row(
+        children: [
+          Icon(
+            Icons.bubble_chart_rounded,
+            color: AppColors.getMoodColor(widget.vibe.mood, isDark),
+            size: 40,
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.vibe.mood.toUpperCase(),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: AppColors.getMoodColor(widget.vibe.mood, isDark),
+                  fontWeight: FontWeight.bold,
                 ),
-                Text(
-                  'Recorded at ${DateFormat('hh:mm a').format(widget.vibe.createdAt.toDate())}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textHint,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlayerCard(ThemeData theme) {
-    return Card(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: StreamBuilder<PlayerStreamData>(
-          stream: _playerStream,
-          builder: (context, snapshot) {
-            final position = snapshot.data?.position ?? Duration.zero;
-            final duration = snapshot.data?.duration ?? Duration.zero;
-            final playerState = snapshot.data?.playerState;
-            final isPlaying = playerState?.playing ?? false;
-            final processingState = playerState?.processingState;
-
-            return Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.replay_10_rounded),
-                      iconSize: 32,
-                      color: AppColors.textSecondary,
-                      onPressed: () =>
-                          _player.seek(position - const Duration(seconds: 10)),
-                    ),
-                    const SizedBox(width: 16),
-                    if (processingState == ja.ProcessingState.loading ||
-                        processingState == ja.ProcessingState.buffering)
-                      const SizedBox(
-                        width: 64,
-                        height: 64,
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                        ),
-                      )
-                    else
-                      IconButton(
-                        icon: Icon(
-                          isPlaying
-                              ? Icons.pause_circle_filled_rounded
-                              : Icons.play_circle_filled_rounded,
-                        ),
-                        iconSize: 64,
-                        color: AppColors.primary,
-                        onPressed: isPlaying ? _player.pause : _player.play,
-                      ),
-                    const SizedBox(width: 16),
-                    IconButton(
-                      icon: const Icon(Icons.forward_10_rounded),
-                      iconSize: 32,
-                      color: AppColors.textSecondary,
-                      onPressed: () =>
-                          _player.seek(position + const Duration(seconds: 10)),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Text(
-                      _formatDuration(position),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    Expanded(
-                      child: Slider(
-                        value: position.inMilliseconds.toDouble().clamp(
-                          0,
-                          duration.inMilliseconds.toDouble(),
-                        ),
-                        max: duration.inMilliseconds.toDouble(),
-                        onChanged: (value) {
-                          _player.seek(Duration(milliseconds: value.toInt()));
-                        },
-                        activeColor: AppColors.primary,
-                        inactiveColor: AppColors.inputFill,
-                      ),
-                    ),
-                    Text(
-                      _formatDuration(duration),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTranscriptionCard(ThemeData theme) {
-    return Card(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Transcription", style: theme.textTheme.titleLarge),
-            const Divider(height: 20, color: AppColors.inputFill),
-            SelectableText(
-              widget.vibe.transcription.isEmpty
-                  ? "No transcription available for this vibe."
-                  : widget.vibe.transcription,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.5,
               ),
+              Text(
+                'Recorded at ${DateFormat('hh:mm a').format(widget.vibe.createdAt.toDate())}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.getTextHint(isDark),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerCard(ThemeData theme, bool isDark) {
+    return AnimatedCard(
+      child: StreamBuilder<PlayerStreamData>(
+        stream: _playerStream,
+        builder: (context, snapshot) {
+          final position = snapshot.data?.position ?? Duration.zero;
+          final duration = snapshot.data?.duration ?? Duration.zero;
+          final playerState = snapshot.data?.playerState;
+          final isPlaying = playerState?.playing ?? false;
+          final processingState = playerState?.processingState;
+
+          return Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedIconButton(
+                    icon: const Icon(Icons.replay_10_rounded),
+                    size: 32,
+                    color: AppColors.getTextSecondary(isDark),
+                    onPressed: () {
+                      _hapticService.audioSkip();
+                      _player.seek(position - const Duration(seconds: 10));
+                    },
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                  if (processingState == ja.ProcessingState.loading ||
+                      processingState == ja.ProcessingState.buffering)
+                    SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: CircularProgressIndicator(
+                        color: AppColors.getPrimary(isDark),
+                      ),
+                    )
+                  else
+                    AnimatedIconButton(
+                      icon: Icon(
+                        isPlaying
+                            ? Icons.pause_circle_filled_rounded
+                            : Icons.play_circle_filled_rounded,
+                      ),
+                      size: 64,
+                      color: AppColors.getPrimary(isDark),
+                      onPressed: () {
+                        _hapticService.audioPlayPause();
+                        isPlaying ? _player.pause() : _player.play();
+                      },
+                    ),
+                  const SizedBox(width: AppSpacing.lg),
+                  AnimatedIconButton(
+                    icon: const Icon(Icons.forward_10_rounded),
+                    size: 32,
+                    color: AppColors.getTextSecondary(isDark),
+                    onPressed: () {
+                      _hapticService.audioSkip();
+                      _player.seek(position + const Duration(seconds: 10));
+                    },
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Text(
+                    _formatDuration(position),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: position.inMilliseconds.toDouble().clamp(
+                        0,
+                        duration.inMilliseconds.toDouble(),
+                      ),
+                      max: duration.inMilliseconds.toDouble(),
+                      onChanged: (value) {
+                        _hapticService.light();
+                        _player.seek(Duration(milliseconds: value.toInt()));
+                      },
+                      activeColor: AppColors.getPrimary(isDark),
+                      inactiveColor: AppColors.getInputFill(isDark),
+                    ),
+                  ),
+                  Text(
+                    _formatDuration(duration),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTranscriptionCard(ThemeData theme, bool isDark) {
+    return AnimatedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Transcription", style: theme.textTheme.titleLarge),
+          Divider(height: AppSpacing.lg, color: AppColors.getInputFill(isDark)),
+          SelectableText(
+            widget.vibe.transcription.isEmpty
+                ? "No transcription available for this vibe."
+                : widget.vibe.transcription,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: AppColors.getTextSecondary(isDark),
+              height: 1.5,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   // --- THIS IS THE CORRECTED WIDGET ---
-  Widget _buildAiFeedbackSection(ThemeData theme) {
+  Widget _buildAiFeedbackSection(ThemeData theme, bool isDark) {
     final bool isPremium = _userModel?.plan == 'premium';
 
     // If feedback has already been fetched, display it (for premium users)
     if (_aiFeedback != null && isPremium) {
-      return Card(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
+      return AnimatedCard(
+        color: AppColors.getPrimary(isDark).withValues(alpha: 0.1),
+        border: Border.all(
+          color: AppColors.getPrimary(isDark).withValues(alpha: 0.3),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "AI Reflection",
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 20),
-              SelectableText(
-                _aiFeedback!,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontStyle: FontStyle.italic,
-                  height: 1.5,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppColors.getPrimary(isDark),
                 ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  "AI Reflection",
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: AppColors.getPrimary(isDark),
+                  ),
+                ),
+              ],
+            ),
+            Divider(height: AppSpacing.lg),
+            SelectableText(
+              _aiFeedback!,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: AppColors.getTextSecondary(isDark),
+                fontStyle: FontStyle.italic,
+                height: 1.5,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -381,53 +395,60 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     if (isPremium) {
       return Center(
         child: _isFetchingFeedback
-            ? const CircularProgressIndicator(color: AppColors.secondary)
-            : ElevatedButton.icon(
-                onPressed: _getAiFeedback,
-                icon: const Icon(Icons.psychology_rounded),
-                label: const Text("Get AI Feedback"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.secondary,
+            ? CircularProgressIndicator(color: AppColors.getSecondary(isDark))
+            : AnimatedButton(
+                onPressed: () {
+                  _hapticService.light();
+                  _getAiFeedback();
+                },
+                backgroundColor: AppColors.getSecondary(isDark),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.psychology_rounded),
+                    SizedBox(width: AppSpacing.sm),
+                    Text("Get AI Feedback"),
+                  ],
                 ),
               ),
       );
     }
     // Otherwise, show the premium up sell card for free users
     else {
-      return Card(
-        color: AppColors.surface,
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              const Icon(
-                Icons.lock_outline_rounded,
-                size: 40,
-                color: AppColors.primary,
+      return AnimatedCard(
+        child: Column(
+          children: [
+            Icon(
+              Icons.lock_outline_rounded,
+              size: 40,
+              color: AppColors.getPrimary(isDark),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Unlock AI-Powered Insights',
+              style: theme.textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Get reflective feedback on your entries with VibeJournal Premium.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.getTextHint(isDark),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Unlock AI-Powered Insights',
-                style: theme.textTheme.titleLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Get reflective feedback on your entries with VibeJournal Premium.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textHint,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).push(
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            AnimatedButton(
+              onPressed: () {
+                _hapticService.light();
+                Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-                ),
-                child: const Text("Upgrade to Unlock"),
-              ),
-            ],
-          ),
+                );
+              },
+              child: const Text("Upgrade to Unlock"),
+            ),
+          ],
         ),
       );
     }

@@ -127,6 +127,8 @@ class _LockScreenState extends State<LockScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Scaffold(
       body: Stack(
         children: [
@@ -139,8 +141,8 @@ class _LockScreenState extends State<LockScreen> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        AppColors.primary.withOpacity(0.2),
-                        const Color(0xFF1a0e2e).withOpacity(0.2),
+                        AppColors.getPrimary(isDark).withValues(alpha: 0.2),
+                        const Color(0xFF1a0e2e).withValues(alpha: 0.2),
                       ],
                       begin: _topAlignmentAnimation.value,
                       end: _bottomAlignmentAnimation.value,
@@ -155,7 +157,7 @@ class _LockScreenState extends State<LockScreen> with TickerProviderStateMixin {
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(color: Colors.black.withOpacity(0.2)),
+              child: Container(color: Colors.black.withValues(alpha: 0.2)),
             ),
           ),
 
@@ -169,11 +171,11 @@ class _LockScreenState extends State<LockScreen> with TickerProviderStateMixin {
                   child: Icon(
                     Icons.lock_outline_rounded,
                     size: 64,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     shadows: [
                       Shadow(
                         blurRadius: 15,
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                       ),
                     ],
                   ),
@@ -187,7 +189,7 @@ class _LockScreenState extends State<LockScreen> with TickerProviderStateMixin {
                     shadows: [
                       Shadow(
                         blurRadius: 5.0,
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         offset: const Offset(1, 1),
                       ),
                     ],
@@ -201,8 +203,8 @@ class _LockScreenState extends State<LockScreen> with TickerProviderStateMixin {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    backgroundColor: Colors.white.withOpacity(0.95),
+                    foregroundColor: AppColors.getPrimary(isDark),
+                    backgroundColor: Colors.white.withValues(alpha: 0.95),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 40,
                       vertical: 16,
@@ -211,7 +213,7 @@ class _LockScreenState extends State<LockScreen> with TickerProviderStateMixin {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    shadowColor: Colors.black.withOpacity(0.5),
+                    shadowColor: Colors.black.withValues(alpha: 0.5),
                   ),
                   onPressed: () => _authenticate(context),
                 ),

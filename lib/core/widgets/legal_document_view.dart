@@ -24,6 +24,7 @@ class LegalDocumentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -46,7 +47,7 @@ class LegalDocumentView extends StatelessWidget {
             child: Text(
               content,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.getTextSecondary(isDark),
               ),
             ),
           ),
@@ -60,7 +61,7 @@ class LegalDocumentView extends StatelessWidget {
                 Checkbox(
                   value: isCheckboxChecked,
                   onChanged: onCheckboxChanged,
-                  activeColor: AppColors.primary,
+                  activeColor: AppColors.getPrimary(isDark),
                 ),
                 Expanded(
                   child: Text(
@@ -76,8 +77,8 @@ class LegalDocumentView extends StatelessWidget {
             child: ElevatedButton(
               onPressed: isAcceptButtonEnabled ? onAcceptButtonPressed : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.surface,
+                backgroundColor: AppColors.getPrimary(isDark),
+                disabledBackgroundColor: AppColors.getSurface(isDark),
               ),
               child: const Text('Accept and Continue'),
             ),

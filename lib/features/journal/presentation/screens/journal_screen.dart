@@ -1,31 +1,34 @@
-// ignore_for_file: use_build_context_synchronously
-
+// lib/features/journal/presentation/screens/journal_screen.dart
 import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:intl/intl.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vibe_journal/core/services/user_service.dart';
-import 'package:vibe_journal/features/journal/presentation/screens/vibe_detail_screen.dart';
-import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart'
-    show UpgradeScreen;
 
+import '../../../../config/theme/app_animations.dart';
 import '../../../../config/theme/app_colors.dart';
-import '../../../../core/services/notification_service.dart';
+import '../../../../config/theme/app_spacing.dart';
+import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/service_locator.dart';
+import '../../../../core/services/user_service.dart';
+import '../../../../core/widgets/animated_card.dart';
+import '../../../../core/widgets/empty_state.dart';
+import '../../../../core/widgets/shimmer_loading.dart';
+import '../../../../core/widgets/snackbar_utils.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
+import '../../../premium/presentation/screens/upgrade_screen.dart';
+import 'vibe_detail_screen.dart';
 
 class RecordingProgress {
   final Duration duration;
@@ -49,8 +52,8 @@ class JournalScreen extends StatefulWidget {
 }
 
 class _JournalScreenState extends State<JournalScreen>
-    with SingleTickerProviderStateMixin {
-  // --- Final Audio Engine ---
+    with TickerProviderStateMixin {
+  // Audio Engine
   late final AudioRecorder _recorder;
   late final ja.AudioPlayer _player;
 
@@ -69,6 +72,7 @@ class _JournalScreenState extends State<JournalScreen>
 
   UserModel? _currentUserModel;
   final _userService = locator<UserService>();
+  final _hapticService = HapticService();
   bool _isSavingVibe = false;
 
   ja.PlayerState? _playerState;
@@ -76,442 +80,233 @@ class _JournalScreenState extends State<JournalScreen>
   final double _silenceDbThreshold = -45.0;
   final double _maxDbThreshold = 0.0;
 
-  AnimationController? _orbAnimationController;
-  Animation<double>? _orbPulseAnimation;
+  // Animations
+  late AnimationController _orbAnimationController;
+  late Animation<double> _orbPulseAnimation;
+  late AnimationController _glowAnimationController;
+  late Animation<double> _glowAnimation;
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  bool _canVibrate = false;
+  final _firestore = FirebaseFirestore.instance;
   bool _showUpgradeBanner = false;
-  static const String _bannerDismissedKey = 'upgradeBannerDismissedTimestamp';
+  static const String _bannerDismissedKey = 'upgrade_banner_dismissed';
 
   @override
   void initState() {
     super.initState();
-    FlutterNativeSplash.remove();
     _recorder = AudioRecorder();
     _player = ja.AudioPlayer();
 
-    _initHaptics();
-    _loadUserModelAndBannerState();
-    _initAudio();
-    _setupPlayerListeners();
-
+    // Setup animations
     _orbAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: AppAnimations.orbPulse,
     );
-    _orbPulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(
-        parent: _orbAnimationController!,
-        curve: Curves.easeInOut,
-      ),
+    _orbPulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _orbAnimationController, curve: Curves.easeInOut),
     );
 
-    // Future.microtask(() => NotificationService().initNotifications());
-
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => NotificationService().initNotifications(),
+    _glowAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _glowAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _glowAnimationController, curve: Curves.easeInOut),
     );
-  }
 
-  @override
-  void dispose() {
-    _maxDurationTimer?.cancel();
-    _durationTimer?.cancel();
-    _amplitudeSubscription?.cancel();
-    _progressStreamController.close();
-    _recorder.dispose();
-    _player.dispose();
-    _orbAnimationController?.dispose();
-    super.dispose();
-  }
-
-  void _setupPlayerListeners() {
     _player.playerStateStream.listen((state) {
-      if (!mounted) return;
-      setState(() {
-        _playerState = state;
-      });
-      if (state.processingState == ja.ProcessingState.completed) {
-        setState(() {
-          _currentlyPlayingOrLoadingId = null;
-        });
-      }
+      if (mounted) setState(() => _playerState = state);
     });
 
     _player.positionStream.listen((position) {
       if (mounted) setState(() => _playerPosition = position);
     });
-    _player.durationStream.listen((duration) {
-      if (mounted) setState(() => _duration = duration ?? Duration.zero);
-    });
+
+    _initAudio();
+    _loadUserModelAndBannerState();
+    FlutterNativeSplash.remove();
   }
 
-  Future<void> _handlePlayback(VibeModel vibe) async {
-    if (await _recorder.isRecording()) return;
-
-    final vibeId = vibe.id;
-    final storagePath = vibe.audioPath;
-
-    if (_player.playing && _currentlyPlayingOrLoadingId == vibeId) {
-      await _player.pause();
-      return;
-    }
-    if (!_player.playing && _currentlyPlayingOrLoadingId == vibeId) {
-      _player.play();
-      return;
-    }
-
-    _triggerHaptic(HapticsType.light);
-    await _player.stop();
-
-    setState(() {
-      _currentlyPlayingOrLoadingId = vibeId;
-      _playerPosition = Duration.zero;
-    });
-
-    try {
-      final storageRef = FirebaseStorage.instance.ref(storagePath);
-      final url = await storageRef.getDownloadURL();
-      await _player.setUrl(url);
-      _player.play();
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error playing file $storagePath: $e");
-      }
-      if (mounted) {
-        setState(() => _currentlyPlayingOrLoadingId = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error: Could not play audio."),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _handlePreviewPlayback() async {
-    if (_tempAudioPath == null) return;
-    if (await _recorder.isRecording()) return;
-
-    final previewId = "preview";
-
-    if (_player.playing && _currentlyPlayingOrLoadingId == previewId) {
-      await _player.pause();
-      return;
-    }
-    if (!_player.playing && _currentlyPlayingOrLoadingId == previewId) {
-      _player.play();
-      return;
-    }
-
-    _triggerHaptic(HapticsType.light);
-    await _player.stop();
-
-    try {
-      await _player.setFilePath(_tempAudioPath!);
-      if (mounted) setState(() => _currentlyPlayingOrLoadingId = previewId);
-      _player.play();
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error playing preview file $_tempAudioPath: $e");
-      }
-    }
+  @override
+  void dispose() {
+    _orbAnimationController.dispose();
+    _glowAnimationController.dispose();
+    _progressStreamController.close();
+    _amplitudeSubscription?.cancel();
+    _durationTimer?.cancel();
+    _maxDurationTimer?.cancel();
+    _recorder.dispose();
+    _player.dispose();
+    super.dispose();
   }
 
   Future<void> _initAudio() async {
+    if (_recordingState != AppRecordingState.uninitialized) return;
+
     setState(() => _recordingState = AppRecordingState.initializing);
-    final micStatus = await Permission.microphone.request();
-    if (micStatus != PermissionStatus.granted) {
-      setState(() => _recordingState = AppRecordingState.uninitialized);
-      return;
-    }
-    setState(() => _recordingState = AppRecordingState.ready);
-  }
 
-  Future<void> _startRecording() async {
-    if (_currentUserModel == null) {
-      _loadUserModelAndBannerState();
-      return;
-    }
-    if (_player.playing) await _player.stop();
-    // Reset state before starting a new recording
-    _resetToReadyState();
-
-    try {
-      _triggerHaptic(HapticsType.medium);
-      final directory = await getApplicationDocumentsDirectory();
-      final fileName =
-          'vibe_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.flac';
-      _tempAudioPath = '${directory.path}/$fileName';
-
-      await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.flac, numChannels: 1),
-        path: _tempAudioPath!,
-      );
-
-      _amplitudeSubscription?.cancel();
-      _amplitudeSubscription = _recorder
-          .onAmplitudeChanged(const Duration(milliseconds: 100))
-          .listen((amp) {
-            if (!mounted) return;
-            final db = (amp.current).clamp(
-              _silenceDbThreshold,
-              _maxDbThreshold,
-            );
-            final normalizedDb =
-                (db - _silenceDbThreshold) /
-                (_maxDbThreshold - _silenceDbThreshold);
-            _progressStreamController.add(
-              RecordingProgress(_duration, normalizedDb),
-            );
-          });
-
-      _duration = Duration.zero;
-      _durationTimer?.cancel();
-      _durationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        _duration += const Duration(seconds: 1);
-      });
-
-      _orbAnimationController?.repeat(reverse: true);
-      _maxDurationTimer?.cancel();
-      final maxDuration = Duration(
-        minutes: _userService.maxRecordingDurationMinutes,
-      );
-      _maxDurationTimer = Timer(maxDuration, () {
-        if (_recordingState == AppRecordingState.recording) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Recording limit of ${_userService.maxRecordingDurationMinutes} min reached.',
-              ),
-              backgroundColor: AppColors.primary,
-            ),
-          );
-          _stopRecording();
-        }
-      });
-
-      if (!mounted) return;
-      setState(() {
-        _recordingState = AppRecordingState.recording;
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error starting recorder: $e");
+    if (await Permission.microphone.request().isGranted) {
+      setState(() => _recordingState = AppRecordingState.ready);
+    } else {
+      if (mounted) {
+        SnackBarUtils.showError(
+          context,
+          message: 'Microphone permission is required to record vibes.',
+        );
+        setState(() => _recordingState = AppRecordingState.uninitialized);
       }
     }
   }
 
-  Future<void> _stopRecording() async {
-    if (!(await _recorder.isRecording())) return;
-    _maxDurationTimer?.cancel();
-    _durationTimer?.cancel();
-    _amplitudeSubscription?.cancel();
-    _orbAnimationController?.stop();
-    _orbAnimationController?.reset();
-    _triggerHaptic(HapticsType.medium);
+  Future<void> _startRecording() async {
+    if (_recordingState != AppRecordingState.ready) return;
+
+    await _hapticService.recordingStart();
+
+    final Directory tempDir = await getTemporaryDirectory();
+    final String tempPath =
+        '${tempDir.path}/temp_vibe_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+    final config = RecordConfig(encoder: AudioEncoder.aacLc, sampleRate: 44100);
+
     try {
-      final path = await _recorder.stop();
+      await _recorder.start(config, path: tempPath);
       if (!mounted) return;
-      _progressStreamController.add(RecordingProgress(_duration, 0.0));
+
       setState(() {
-        _recordingState = AppRecordingState.stopped;
-        _tempAudioPath = path;
+        _recordingState = AppRecordingState.recording;
+        _tempAudioPath = tempPath;
+        _duration = Duration.zero;
+      });
+
+      _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+        _duration += const Duration(milliseconds: 100);
+        _progressStreamController.add(RecordingProgress(_duration, 0.0));
+      });
+
+      _amplitudeSubscription = _recorder.onAmplitudeChanged(
+        const Duration(milliseconds: 150),
+      ).listen((amp) {
+        final double normalized = _normalizeDb(amp.current);
+        _progressStreamController.add(RecordingProgress(_duration, normalized));
+      });
+
+      final maxDurationMs = (_currentUserModel?.plan == 'premium' ? 60 : 5) * 60 * 1000;
+      _maxDurationTimer = Timer(Duration(milliseconds: maxDurationMs), () {
+        if (_recordingState == AppRecordingState.recording) {
+          _stopRecording();
+        }
       });
     } catch (e) {
-      if (mounted) setState(() => _recordingState = AppRecordingState.ready);
+      if (mounted) {
+        SnackBarUtils.showError(context, message: 'Failed to start recording: $e');
+        setState(() => _recordingState = AppRecordingState.ready);
+      }
+    }
+  }
+
+  double _normalizeDb(double db) {
+    return ((db - _silenceDbThreshold) / (_maxDbThreshold - _silenceDbThreshold))
+        .clamp(0.0, 1.0);
+  }
+
+  Future<void> _stopRecording() async {
+    if (_recordingState != AppRecordingState.recording) return;
+
+    await _hapticService.recordingStop();
+
+    await _recorder.stop();
+    _amplitudeSubscription?.cancel();
+    _durationTimer?.cancel();
+    _maxDurationTimer?.cancel();
+
+    if (!mounted) return;
+    setState(() => _recordingState = AppRecordingState.stopped);
+  }
+
+  Future<void> _handlePreviewPlayback() async {
+    if (_player.playing) {
+      await _player.pause();
+    } else if (_tempAudioPath != null) {
+      try {
+        await _player.setFilePath(_tempAudioPath!);
+        await _player.play();
+      } catch (e) {
+        if (mounted) {
+          SnackBarUtils.showError(context, message: 'Failed to play preview: $e');
+        }
+      }
     }
   }
 
   Future<void> _saveVibe() async {
-    if (_tempAudioPath == null || _currentUserModel == null) return;
-    if (_currentUserModel!.cloudVibeCount >= _userService.maxCloudVibes) {
-      _triggerHaptic(HapticsType.warning);
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text(
-            'Cloud Storage Full',
-            style: TextStyle(color: AppColors.primary),
-          ),
-          content: Text(
-            'You\'ve reached your limit of ${_userService.maxCloudVibes} saved vibes. Upgrade for unlimited storage!',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          actions: [
-            TextButton(
-              child: const Text(
-                'Later',
-                style: TextStyle(color: AppColors.textHint),
-              ),
-              onPressed: () => Navigator.of(ctx).pop(),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.secondary,
-              ),
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Upgrade screen coming soon!')),
-                );
-              },
-              child: const Text('Upgrade Now'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
+    if (_tempAudioPath == null || _currentUserModel == null || _isSavingVibe) return;
+
     setState(() => _isSavingVibe = true);
-    _triggerHaptic(HapticsType.medium);
-    final String fileName = _tempAudioPath!.split('/').last;
-    final File fileToUpload = File(_tempAudioPath!);
-    final UploadTask uploadTask = FirebaseStorage.instance
-        .ref()
-        .child('vibes/${_currentUserModel!.uid}/$fileName')
-        .putFile(fileToUpload);
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(
-          'Uploading Vibe...',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-        content: StreamBuilder<TaskSnapshot>(
-          stream: uploadTask.snapshotEvents,
-          builder: (context, snapshot) {
-            double progress = 0.0;
-            String progressText = "Preparing upload...";
-            if (snapshot.hasData) {
-              final data = snapshot.data!;
-              progress = data.bytesTransferred / data.totalBytes;
-              final transferredMB = (data.bytesTransferred / (1024 * 1024))
-                  .toStringAsFixed(1);
-              final totalMB = (data.totalBytes / (1024 * 1024)).toStringAsFixed(
-                1,
-              );
-              progressText =
-                  "${(progress * 100).toStringAsFixed(0)}%  ($transferredMB MB / $totalMB MB)";
-            }
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: AppColors.inputFill,
-                  color: AppColors.primary,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  progressText,
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
+    await _hapticService.vibeSaved();
+
     try {
-      final TaskSnapshot snapshot = await uploadTask;
-      final String storagePath = snapshot.ref.fullPath;
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      final vibeData = {
-        'userId': _currentUserModel!.uid,
-        'audioPath': storagePath,
+      final user = FirebaseAuth.instance.currentUser!;
+      final fileName = 'vibe_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('vibes/${user.uid}/$fileName');
+
+      await storageRef.putFile(File(_tempAudioPath!));
+      final downloadUrl = await storageRef.getDownloadURL();
+
+      final now = Timestamp.now();
+      await _firestore.collection('vibes').add({
+        'userId': user.uid,
+        'audioPath': downloadUrl,
         'fileName': fileName,
         'duration': _duration.inMilliseconds,
-        'createdAt': Timestamp.now(),
+        'createdAt': now,
         'transcription': '',
-        'mood': '',
-      };
-      await _firestore.collection('vibes').add(vibeData);
-      final userDocRef = _firestore
-          .collection('users')
-          .doc(_currentUserModel!.uid);
-      await userDocRef.update({'cloudVibeCount': FieldValue.increment(1)});
-      final updatedUserDoc = await userDocRef.get();
-      if (updatedUserDoc.exists && mounted) {
-        final updatedUserModel = UserModel.fromFirestore(updatedUserDoc);
-        final userService = locator<UserService>();
-        await userService.updateUser(updatedUserModel);
-        setState(() {
-          _currentUserModel = updatedUserModel;
-        });
+        'mood': 'unknown',
+      });
+
+      await _firestore.collection('users').doc(user.uid).update({
+        'cloudVibeCount': FieldValue.increment(1),
+      });
+
+      // Reload user model from Firestore
+      final updatedUserDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (updatedUserDoc.exists) {
+        final updatedUser = UserModel.fromFirestore(updatedUserDoc);
+        await _userService.updateUser(updatedUser);
+        if (mounted) setState(() => _currentUserModel = updatedUser);
       }
-      try {
-        if (await fileToUpload.exists()) await fileToUpload.delete();
-      } catch (e) {
-        if (kDebugMode) {
-          print('Error deleting local temp file: $e');
-        }
+
+      await File(_tempAudioPath!).delete();
+
+      if (mounted) {
+        SnackBarUtils.showSuccess(context, message: 'Vibe saved successfully!');
+        _resetToReadyState();
       }
-      _triggerHaptic(HapticsType.success);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Awesome! Your vibe is saved to the cloud.',
-            style: TextStyle(color: AppColors.onPrimary),
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-      if (!mounted) return;
-      _resetToReadyState();
     } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      _triggerHaptic(HapticsType.error);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not save vibe: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (mounted) {
+        SnackBarUtils.showError(context, message: 'Failed to save vibe: $e');
+      }
     } finally {
       if (mounted) setState(() => _isSavingVibe = false);
     }
   }
 
-  void _discardRecording() {
-    _maxDurationTimer?.cancel();
-    _durationTimer?.cancel();
-    _amplitudeSubscription?.cancel();
-    _triggerHaptic(HapticsType.selection);
+  Future<void> _discardRecording() async {
+    await _player.stop();
     if (_tempAudioPath != null) {
-      final file = File(_tempAudioPath!);
-      if (file.existsSync()) {
-        try {
-          file.deleteSync();
-        } catch (e) {
-          if (kDebugMode) {
-            print("Error deleting file: $e");
-          }
-        }
-      }
+      try {
+        await File(_tempAudioPath!).delete();
+      } catch (_) {}
     }
     if (!mounted) return;
     _resetToReadyState();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Vibe draft discarded.'),
-        backgroundColor: AppColors.surface,
-      ),
-    );
+    SnackBarUtils.showInfo(context, message: 'Vibe draft discarded');
   }
 
   void _resetToReadyState() {
-    _orbAnimationController?.stop();
-    _orbAnimationController?.reset();
+    _orbAnimationController.stop();
+    _orbAnimationController.reset();
     _progressStreamController.add(RecordingProgress(Duration.zero, 0.0));
     if (!mounted) return;
     setState(() {
@@ -528,25 +323,19 @@ class _JournalScreenState extends State<JournalScreen>
       final userModel = locator<UserModel>();
       await locator<UserService>().updateUser(userModel);
       if (!mounted) return;
-      setState(() {
-        _currentUserModel = userModel;
-      });
+      setState(() => _currentUserModel = userModel);
       if (userModel.plan == 'free') _checkShowUpgradeBanner();
     } else {
       final currentUserAuth = FirebaseAuth.instance.currentUser;
       if (currentUserAuth != null) {
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(currentUserAuth.uid)
-            .get();
+        final userDoc =
+            await _firestore.collection('users').doc(currentUserAuth.uid).get();
         final userService = locator<UserService>();
         if (userDoc.exists) {
           final model = UserModel.fromFirestore(userDoc);
           await userService.updateUser(model);
           if (!mounted) return;
-          setState(() {
-            _currentUserModel = model;
-          });
+          setState(() => _currentUserModel = model);
           if (model.plan == 'free') _checkShowUpgradeBanner();
         } else {
           FirebaseAuth.instance.signOut();
@@ -562,113 +351,111 @@ class _JournalScreenState extends State<JournalScreen>
     if (lastDismissedTimestamp == null ||
         DateTime.now().millisecondsSinceEpoch - lastDismissedTimestamp >
             const Duration(days: 3).inMilliseconds) {
-      if (mounted) {
-        setState(() {
-          _showUpgradeBanner = true;
-        });
-      }
+      if (mounted) setState(() => _showUpgradeBanner = true);
     } else {
-      if (mounted) {
-        setState(() {
-          _showUpgradeBanner = false;
-        });
-      }
+      if (mounted) setState(() => _showUpgradeBanner = false);
     }
   }
 
   Future<void> _dismissUpgradeBanner() async {
-    await _triggerHaptic(HapticsType.selection);
+    await _hapticService.light();
     final preferences = await SharedPreferences.getInstance();
     await preferences.setInt(
       _bannerDismissedKey,
       DateTime.now().millisecondsSinceEpoch,
     );
-    if (mounted) {
-      setState(() {
-        _showUpgradeBanner = false;
-      });
+    if (mounted) setState(() => _showUpgradeBanner = false);
+  }
+
+  String _getStatusMessage() {
+    switch (_recordingState) {
+      case AppRecordingState.ready:
+        return 'Tap to start recording';
+      case AppRecordingState.recording:
+        return 'Recording your vibe...';
+      case AppRecordingState.stopped:
+        return 'Preview your vibe';
+      default:
+        return 'Initializing...';
     }
   }
 
-  Future<void> _initHaptics() async {
-    _canVibrate = await Haptics.canVibrate();
+  String _formatDuration(int milliseconds) {
+    final duration = Duration(milliseconds: milliseconds);
+    final minutes = duration.inMinutes.toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
-  Future<void> _triggerHaptic(HapticsType type) async {
-    if (_canVibrate) await Haptics.vibrate(type);
+  Future<void> _handlePlayback(VibeModel vibe) async {
+    await _hapticService.audioPlayPause();
+
+    if (_currentlyPlayingOrLoadingId == vibe.id && _player.playing) {
+      await _player.pause();
+      setState(() => _currentlyPlayingOrLoadingId = null);
+      return;
+    }
+
+    if (_currentlyPlayingOrLoadingId != vibe.id) {
+      setState(() => _currentlyPlayingOrLoadingId = vibe.id);
+      try {
+        await _player.setUrl(vibe.audioPath);
+        await _player.play();
+      } catch (e) {
+        if (mounted) {
+          SnackBarUtils.showError(context, message: 'Failed to play vibe');
+          setState(() => _currentlyPlayingOrLoadingId = null);
+        }
+      }
+    } else {
+      await _player.play();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     if (_currentUserModel == null) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+          child: CircularProgressIndicator(
+            color: AppColors.getPrimary(isDark),
+          ),
         ),
       );
     }
+
     return Scaffold(
       body: SafeArea(
-        // 1. Wrap the main content in a SingleChildScrollView
         child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20.0,
-              vertical: 15.0,
-            ),
+            padding: const EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
             child: Column(
-              children: <Widget>[
-                // Top Section (remains the same)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10.0, bottom: 5.0),
-                  child: Text(
-                    'Hey ${_currentUserModel!.fullName?.split(" ").first ?? 'Viber'},',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w300,
-                      color: AppColors.textSecondary.withOpacity(0.9),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Text(
-                  _getStatusMessage(),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.normal,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                _buildUpgradeBanner(theme),
+              children: [
+                const SizedBox(height: AppSpacing.lg),
+                // Greeting
+                _buildGreeting(theme, isDark),
 
-                // Orb Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 15.0,
-                  ), // Add padding for spacing
-                  child: StreamBuilder<RecordingProgress>(
-                    stream: _progressStreamController.stream,
-                    initialData: RecordingProgress(Duration.zero, 0.0),
-                    builder: (context, snapshot) {
-                      final progress =
-                          snapshot.data ??
-                          RecordingProgress(Duration.zero, 0.0);
-                      return _buildVibeOrbUI(theme, progress);
-                    },
-                  ),
-                ),
-                _buildActionButtons(theme),
+                // Upgrade Banner
+                if (_showUpgradeBanner) _buildUpgradeBanner(theme, isDark),
 
-                // Recent Vibes Section
-                const SizedBox(height: 30),
-                Text(
-                  "Recent Vibes",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildVibesList(theme),
+                const SizedBox(height: AppSpacing.xl),
+
+                // The Orb
+                _buildEnhancedOrb(theme, isDark),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // Action Buttons
+                _buildActionButtons(theme, isDark),
+
+                const SizedBox(height: AppSpacing.xxxl),
+
+                // Recent Vibes
+                _buildRecentVibesSection(theme, isDark),
               ],
             ),
           ),
@@ -677,190 +464,298 @@ class _JournalScreenState extends State<JournalScreen>
     );
   }
 
-  Widget _buildVibeOrbUI(ThemeData theme, RecordingProgress progress) {
-    IconData icon;
-    Color orbColor;
-    VoidCallback? onPressed;
-    double orbSize = 140;
-    bool isPulsing =
-        _recordingState == AppRecordingState.recording || _player.playing;
-
-    if (isPulsing && !(_orbAnimationController?.isAnimating ?? false)) {
-      _orbAnimationController?.repeat(reverse: true);
-    } else if (!isPulsing && (_orbAnimationController?.isAnimating ?? false)) {
-      _orbAnimationController?.stop();
-      _orbAnimationController?.reset();
-    }
-
-    switch (_recordingState) {
-      case AppRecordingState.ready:
-        icon = Icons.graphic_eq_rounded;
-        orbColor = AppColors.secondary;
-        onPressed = _startRecording;
-        break;
-      case AppRecordingState.recording:
-        icon = Icons.stop_circle_outlined;
-        orbColor = AppColors.error;
-        onPressed = _stopRecording;
-        break;
-      case AppRecordingState.stopped:
-        icon = Icons.play_circle_outline_rounded;
-        orbColor = AppColors.primary;
-        onPressed = _handlePreviewPlayback;
-        break;
-      default:
-        icon = Icons.mic_off_rounded;
-        orbColor = Colors.grey.shade800;
-        onPressed = _initAudio;
-    }
-
-    Duration currentDisplayDuration =
-        _recordingState == AppRecordingState.recording
-        ? progress.duration
-        : _playerPosition;
-
+  Widget _buildGreeting(ThemeData theme, bool isDark) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        ScaleTransition(
-          scale: _orbPulseAnimation ?? const AlwaysStoppedAnimation(1.0),
-          child: GestureDetector(
-            onTap: onPressed,
-            child: Container(
-              width: orbSize,
-              height: orbSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: orbColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: orbColor.withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    spreadRadius:
-                        (_recordingState == AppRecordingState.recording
-                                ? (5.0 + progress.normalizedDbLevel * 15.0)
-                                : 7.0)
-                            .clamp(7.0, 20.0),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: orbSize * 0.5,
-                  color: AppColors.onSecondary,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
         Text(
-          _formatDuration(currentDisplayDuration.inMilliseconds),
-          style: theme.textTheme.headlineSmall?.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontFeatures: const [FontFeature.tabularFigures()],
+          'Hey ${_currentUserModel!.fullName?.split(" ").first ?? 'Viber'},',
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w300,
+            color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.9),
           ),
-        ),
-        if (_player.playing)
-          Text(
-            "of ${_formatDuration(_duration.inMilliseconds)}",
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.textHint,
-            ),
+          textAlign: TextAlign.center,
+        ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          _getStatusMessage(),
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: AppColors.getTextPrimary(isDark),
+            fontWeight: FontWeight.w500,
           ),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 80),
-          margin: const EdgeInsets.only(top: 15),
-          height: 8,
-          width: _recordingState == AppRecordingState.recording
-              ? (progress.normalizedDbLevel * 130.0).clamp(0.0, 130.0)
-              : 0.0,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.secondary.withValues(alpha: 0.5),
-                AppColors.secondary,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(5),
-          ),
-        ),
+          textAlign: TextAlign.center,
+        ).animate(delay: 100.ms).fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0),
       ],
     );
   }
 
-  Widget _buildActionButtons(ThemeData theme) {
-    bool showActions = _recordingState == AppRecordingState.stopped;
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 300),
-      opacity: showActions ? 1.0 : 0.0,
-      child: showActions
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+  Widget _buildUpgradeBanner(ThemeData theme, bool isDark) {
+    return AnimatedCard(
+      margin: const EdgeInsets.only(top: AppSpacing.xl),
+      gradient: AppColors.primaryGradient,
+      onTap: () {
+        _hapticService.light();
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+        );
+      },
+      child: Row(
+        children: [
+          Icon(Icons.star_rounded, color: AppColors.darkOnPrimary),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Tooltip(
-                  message: "Discard",
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.delete_sweep_outlined,
-                      color: AppColors.textHint,
-                    ),
-                    iconSize: 32,
-                    onPressed: _discardRecording,
+                Text(
+                  'Upgrade to Premium',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppColors.darkOnPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 25),
-                ElevatedButton.icon(
-                  icon: _isSavingVibe
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: AppColors.onPrimary,
-                          ),
-                        )
-                      : const Icon(Icons.cloud_upload_outlined, size: 22),
-                  label: const Text('Save Vibe'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onPressed: _isSavingVibe ? null : _saveVibe,
-                ),
-                const SizedBox(width: 25),
-                Tooltip(
-                  message: "Re-record",
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.replay_rounded,
-                      color: AppColors.textHint,
-                    ),
-                    iconSize: 32,
-                    onPressed: () {
-                      _triggerHaptic(HapticsType.selection);
-                      _discardRecording();
-                    },
+                Text(
+                  'Unlock unlimited vibes & AI insights',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.darkOnPrimary.withValues(alpha: 0.8),
                   ),
                 ),
               ],
-            )
-          : null,
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: AppColors.darkOnPrimary),
+            onPressed: _dismissUpgradeBanner,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3, end: 0);
+  }
+
+  Widget _buildEnhancedOrb(ThemeData theme, bool isDark) {
+    return StreamBuilder<RecordingProgress>(
+      stream: _progressStreamController.stream,
+      initialData: RecordingProgress(Duration.zero, 0.0),
+      builder: (context, snapshot) {
+        final progress = snapshot.data ?? RecordingProgress(Duration.zero, 0.0);
+
+        IconData icon;
+        Color orbColor;
+        VoidCallback? onPressed;
+        bool isPulsing = _recordingState == AppRecordingState.recording ||
+            _player.playing;
+
+        if (isPulsing && !_orbAnimationController.isAnimating) {
+          _orbAnimationController.repeat(reverse: true);
+        } else if (!isPulsing && _orbAnimationController.isAnimating) {
+          _orbAnimationController.stop();
+          _orbAnimationController.reset();
+        }
+
+        switch (_recordingState) {
+          case AppRecordingState.ready:
+            icon = Icons.mic_rounded;
+            orbColor = AppColors.getSecondary(isDark);
+            onPressed = _startRecording;
+            break;
+          case AppRecordingState.recording:
+            icon = Icons.stop_circle_rounded;
+            orbColor = AppColors.getError(isDark);
+            onPressed = _stopRecording;
+            break;
+          case AppRecordingState.stopped:
+            icon = Icons.play_arrow_rounded;
+            orbColor = AppColors.getPrimary(isDark);
+            onPressed = _handlePreviewPlayback;
+            break;
+          default:
+            icon = Icons.mic_off_rounded;
+            orbColor = AppColors.getTextSecondary(isDark).withValues(alpha: 0.4);
+            onPressed = _initAudio;
+        }
+
+        final currentDisplayDuration = _recordingState == AppRecordingState.recording
+            ? progress.duration
+            : _playerPosition;
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Orb with glow
+            ScaleTransition(
+              scale: _orbPulseAnimation,
+              child: GestureDetector(
+                onTap: () {
+                  _hapticService.medium();
+                  onPressed?.call();
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer glow
+                    if (_recordingState == AppRecordingState.recording)
+                      AnimatedBuilder(
+                        animation: _glowAnimation,
+                        builder: (context, child) {
+                          return Container(
+                            width: 200 + (progress.normalizedDbLevel * 40),
+                            height: 200 + (progress.normalizedDbLevel * 40),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  orbColor.withValues(
+                                    alpha: 0.4 * _glowAnimation.value,
+                                  ),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    // Main orb
+                    Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: AppColors.orbGradient(centerColor: orbColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: orbColor.withValues(alpha: 0.5),
+                            blurRadius: 30,
+                            spreadRadius: _recordingState == AppRecordingState.recording
+                                ? 10 + (progress.normalizedDbLevel * 15)
+                                : 10,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        icon,
+                        size: 80,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.xl),
+
+            // Duration display
+            Text(
+              _formatDuration(currentDisplayDuration.inMilliseconds),
+              style: theme.textTheme.headlineLarge?.copyWith(
+                color: AppColors.getTextPrimary(isDark),
+                fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+
+            if (_player.playing)
+              Text(
+                'of ${_formatDuration(_duration.inMilliseconds)}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
+                ),
+              ),
+
+            // Amplitude bar
+            const SizedBox(height: AppSpacing.lg),
+            AnimatedContainer(
+              duration: AppAnimations.amplitudeUpdate,
+              height: 6,
+              width: _recordingState == AppRecordingState.recording
+                  ? (progress.normalizedDbLevel * 150).clamp(0.0, 150.0)
+                  : 0.0,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.getSecondary(isDark).withValues(alpha: 0.5),
+                    AppColors.getSecondary(isDark),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusXs),
+              ),
+            ),
+          ],
+        );
+      },
+    ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8));
+  }
+
+  Widget _buildActionButtons(ThemeData theme, bool isDark) {
+    final showActions = _recordingState == AppRecordingState.stopped;
+
+    return AnimatedOpacity(
+      duration: AppAnimations.normal,
+      opacity: showActions ? 1.0 : 0.0,
+      child: showActions
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildActionButton(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Discard',
+                  color: AppColors.getError(isDark),
+                  onPressed: _discardRecording,
+                ),
+                _buildActionButton(
+                  icon: Icons.check_circle_outline_rounded,
+                  label: _isSavingVibe ? 'Saving...' : 'Save Vibe',
+                  color: AppColors.getSuccess(isDark),
+                  onPressed: _isSavingVibe ? null : _saveVibe,
+                ),
+              ],
+            ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3, end: 0)
+          : const SizedBox.shrink(),
     );
   }
 
-  Widget _buildVibesList(ThemeData theme) {
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: () {
+        _hapticService.light();
+        onPressed?.call();
+      },
+      icon: Icon(icon, color: color),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xl,
+          vertical: AppSpacing.md,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentVibesSection(ThemeData theme, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recent Vibes',
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: AppColors.getTextPrimary(isDark),
+            fontWeight: FontWeight.w600,
+          ),
+        ).animate().fadeIn(delay: 300.ms),
+        const SizedBox(height: AppSpacing.lg),
+        _buildVibesList(theme, isDark),
+      ],
+    );
+  }
+
+  Widget _buildVibesList(ThemeData theme, bool isDark) {
     if (_currentUserModel == null) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -874,228 +769,117 @@ class _JournalScreenState extends State<JournalScreen>
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              'Error: ${snapshot.error}',
-              style: TextStyle(color: AppColors.error),
-            ),
+          return EmptyStates.error(
+            context: context,
+            message: 'Failed to load vibes',
+            onRetry: () => setState(() {}),
           );
         }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.secondary),
-          );
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 30.0),
-              child: Text(
-                "Your 5 most recent vibes will appear here.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textHint),
+          return Column(
+            children: List.generate(
+              3,
+              (index) => ShimmerLoading(
+                child: ShimmerShapes.listItem(),
               ),
             ),
           );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return EmptyStates.noVibes(context: context);
         }
 
         final vibes = snapshot.data!.docs;
 
-        // **THE FIX IS HERE:**
         return ListView.builder(
           itemCount: vibes.length,
           padding: EdgeInsets.zero,
-          shrinkWrap:
-              true, // Tells the ListView to be only as tall as its content
-          physics:
-              const NeverScrollableScrollPhysics(), // Disables the ListView's own scrolling
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           itemBuilder: (context, index) {
-            // ... The rest of your itemBuilder logic remains exactly the same
             final vibe = VibeModel.fromFirestore(
               vibes[index] as DocumentSnapshot<Map<String, dynamic>>,
             );
-            final bool isActive = _currentlyPlayingOrLoadingId == vibe.id;
-            final bool isLoading =
-                isActive &&
-                _playerState?.processingState == ja.ProcessingState.loading;
-            final bool isPlaying = isActive && _playerState?.playing == true;
-
-            Widget trailingWidget;
-            if (isLoading) {
-              trailingWidget = const SizedBox(
-                width: 32,
-                height: 32,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.primary,
-                ),
-              );
-            } else if (isPlaying) {
-              trailingWidget = IconButton(
-                icon: const Icon(
-                  Icons.pause_circle_filled_rounded,
-                  color: AppColors.primary,
-                  size: 32,
-                ),
-                onPressed: () => _handlePlayback(vibe),
-              );
-            } else {
-              trailingWidget = IconButton(
-                icon: const Icon(
-                  Icons.play_circle_filled_rounded,
-                  color: AppColors.textSecondary,
-                  size: 32,
-                ),
-                onPressed: () => _handlePlayback(vibe),
-              );
-            }
-
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 4.0),
-              color: isActive
-                  ? AppColors.primary.withOpacity(0.1)
-                  : AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: isActive
-                      ? AppColors.primary.withOpacity(0.5)
-                      : Colors.transparent,
-                  width: 1,
-                ),
-              ),
-              child: ListTile(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => VibeDetailScreen(vibe: vibe),
-                  ),
-                ),
-                leading: Icon(
-                  Icons.graphic_eq_rounded,
-                  color: AppColors.moodColors[vibe.mood] ?? AppColors.textHint,
-                  size: 30,
-                ),
-                title: Text(
-                  DateFormat(
-                    'MMM d, yy - hh:mm a',
-                  ).format(vibe.createdAt.toDate()),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                subtitle: Text(
-                  vibe.transcription.isEmpty
-                      ? 'Duration: ${_formatDuration(vibe.duration)}'
-                      : '"${vibe.transcription}"',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textHint,
-                  ),
-                ),
-                trailing: trailingWidget,
-              ),
-            );
+            return _buildVibeCard(vibe, theme, isDark, index);
           },
         );
       },
     );
   }
 
-  Widget _buildUpgradeBanner(ThemeData theme) {
-    if (_currentUserModel?.plan == 'free' && _showUpgradeBanner) {
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 15),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.star_purple500_outlined,
-              color: AppColors.primary,
-              size: 30,
+  Widget _buildVibeCard(VibeModel vibe, ThemeData theme, bool isDark, int index) {
+    final isActive = _currentlyPlayingOrLoadingId == vibe.id;
+    final isLoading = isActive && _playerState?.processingState == ja.ProcessingState.loading;
+    final isPlaying = isActive && _playerState?.playing == true;
+
+    final moodColor = AppColors.getMoodColor(vibe.mood, isDark);
+
+    return AnimatedCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      onTap: () {
+        _hapticService.light();
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => VibeDetailScreen(vibe: vibe)),
+        );
+      },
+      child: Row(
+        children: [
+          // Mood indicator
+          Container(
+            width: 4,
+            height: 60,
+            decoration: BoxDecoration(
+              color: moodColor,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusXs),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Go Premium!",
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('MMM d, yyyy \'at\' h:mm a').format(
+                    vibe.createdAt.toDate(),
                   ),
-                  Text(
-                    "Unlock unlimited vibes & longer recordings.",
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: AppColors.getTextPrimary(isDark),
                   ),
-                ],
-              ),
-            ),
-            TextButton(
-              child: const Text(
-                "Upgrade",
-                style: TextStyle(
-                  color: AppColors.secondary,
-                  fontWeight: FontWeight.bold,
                 ),
-              ),
-              onPressed: () {
-                _triggerHaptic(HapticsType.light);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-                );
-              },
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '${_formatDuration(vibe.duration)} • ${vibe.mood.toUpperCase()}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
             ),
+          ),
+
+          // Play button
+          if (isLoading)
+            const SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
             IconButton(
-              icon: const Icon(
-                Icons.close,
-                size: 20,
-                color: AppColors.textHint,
+              icon: Icon(
+                isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,
+                color: isPlaying ? AppColors.getPrimary(isDark) : AppColors.getTextSecondary(isDark),
+                size: 40,
               ),
-              onPressed: _dismissUpgradeBanner,
-              tooltip: "Dismiss",
+              onPressed: () => _handlePlayback(vibe),
             ),
-          ],
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 15),
-      child: const SizedBox.shrink(),
-    );
-  }
-
-  String _formatDuration(int milliseconds) {
-    final d = Duration(milliseconds: milliseconds);
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  String _getStatusMessage() {
-    switch (_recordingState) {
-      case AppRecordingState.uninitialized:
-        return "Audio system unavailable.";
-      case AppRecordingState.initializing:
-        return "Warming up the mic...";
-      case AppRecordingState.ready:
-        return "Ready to capture your vibe?";
-      case AppRecordingState.recording:
-        return "Listening closely...";
-      case AppRecordingState.stopped:
-        return "Vibe captured! What's next?";
-    }
+        ],
+      ),
+    ).animate(delay: (350 + (index * 50)).ms).fadeIn().slideX(begin: 0.2, end: 0);
   }
 }

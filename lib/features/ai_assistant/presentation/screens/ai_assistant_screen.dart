@@ -4,7 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
+import 'package:vibe_journal/config/theme/app_spacing.dart';
+import 'package:vibe_journal/config/theme/app_animations.dart';
+import 'package:vibe_journal/core/services/haptic_service.dart';
+import 'package:vibe_journal/core/services/sound_service.dart';
+import 'package:vibe_journal/core/widgets/animated_card.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
@@ -29,6 +35,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final List<ChatMessage> _messages = [];
   bool _isAwaitingResponse = false;
   final ScrollController _scrollController = ScrollController();
+  final _hapticService = HapticService();
+  final _soundService = SoundService();
 
   @override
   void initState() {
@@ -95,6 +103,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Future<void> _callAiFunction({String? text, required String action}) async {
     if (_isAwaitingResponse) return;
+
+    _hapticService.light(); // Add haptic feedback
 
     // Add user message to chat immediately if it exists
     if (text != null && text.trim().isNotEmpty) {
@@ -173,6 +183,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     bool isPremium = _userModel!.plan == 'premium';
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     if (!isPremium) return _buildUpgradeScreen(theme);
 
@@ -182,21 +193,36 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(AppSpacing.lg),
               reverse: true, // Makes list start from bottom
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
-                return _ChatMessageBubble(message: message);
+                return _ChatMessageBubble(message: message)
+                    .animate()
+                    .fadeIn(
+                      duration: AppAnimations.fast,
+                      delay: AppAnimations.staggerDelayFor(
+                        _messages.length - index - 1,
+                      ),
+                    )
+                    .slideY(
+                      begin: 0.2,
+                      end: 0,
+                      duration: AppAnimations.fast,
+                      delay: AppAnimations.staggerDelayFor(
+                        _messages.length - index - 1,
+                      ),
+                    );
               },
             ),
           ),
           if (_isAwaitingResponse)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
               child: LinearProgressIndicator(
                 backgroundColor: Colors.transparent,
-                color: AppColors.primary,
+                color: AppColors.getPrimary(isDark),
               ),
             ),
           _buildTextInputArea(theme),
@@ -206,47 +232,56 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Widget _buildTextInputArea(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(8.0),
+      padding: EdgeInsets.all(AppSpacing.elementSpacing),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.inputFill)),
+        color: AppColors.getSurface(isDark),
+        border: Border(top: BorderSide(color: AppColors.getInputFill(isDark))),
       ),
       child: SafeArea(
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.lightbulb_outline_rounded,
-                color: AppColors.primary,
+                color: AppColors.getPrimary(isDark),
               ),
               tooltip: 'Get a prompt',
               onPressed: _isAwaitingResponse
                   ? null
-                  : () => _callAiFunction(action: 'get_prompt'),
+                  : () {
+                      _hapticService.light();
+                      _callAiFunction(action: 'get_prompt');
+                    },
             ),
             Expanded(
               child: TextField(
                 controller: _textController,
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: AppColors.getTextPrimary(isDark)),
                 decoration: const InputDecoration(
                   hintText: 'Ask for a prompt or paste a vibe...',
                   border: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   enabledBorder: InputBorder.none,
                 ),
-                onSubmitted: (text) =>
-                    _callAiFunction(text: text, action: 'get_feedback'),
+                onSubmitted: (text) {
+                  _hapticService.light();
+                  _callAiFunction(text: text, action: 'get_feedback');
+                },
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.send_rounded, color: AppColors.secondary),
+              icon: Icon(Icons.send_rounded, color: AppColors.getSecondary(isDark)),
               onPressed: _isAwaitingResponse
                   ? null
-                  : () => _callAiFunction(
-                      text: _textController.text,
-                      action: 'get_feedback',
-                    ),
+                  : () {
+                      _hapticService.light();
+                      _callAiFunction(
+                        text: _textController.text,
+                        action: 'get_feedback',
+                      );
+                    },
             ),
           ],
         ),
@@ -255,6 +290,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Widget _buildUpgradeScreen(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return Scaffold(
       body: Center(
         child: Padding(
@@ -262,9 +298,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.lock_outline_rounded,
-                color: AppColors.textHint,
+                color: AppColors.getTextHint(isDark),
                 size: 60,
               ),
               const SizedBox(height: 16),
@@ -277,7 +313,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               Text(
                 "Get personalized journaling prompts and reflective feedback on your entries. Go Premium to access this feature.",
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.getTextSecondary(isDark),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -289,7 +325,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 icon: const Icon(Icons.star_rounded),
                 label: const Text("Upgrade to Premium"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.secondary,
+                  backgroundColor: AppColors.getSecondary(isDark),
                 ),
               ),
             ],
@@ -307,34 +343,36 @@ class _ChatMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isUser = message.isFromUser;
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      margin: EdgeInsets.symmetric(vertical: AppSpacing.elementSpacing),
       child: Row(
         mainAxisAlignment: isUser
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         children: [
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isUser ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: isUser
-                      ? const Radius.circular(16)
-                      : const Radius.circular(4),
-                  bottomRight: isUser
-                      ? const Radius.circular(4)
-                      : const Radius.circular(16),
-                ),
+            child: AnimatedCard(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              color: isUser ? AppColors.getPrimary(isDark) : AppColors.getSurface(isDark),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppSpacing.radiusLg),
+                topRight: Radius.circular(AppSpacing.radiusLg),
+                bottomLeft: isUser
+                    ? Radius.circular(AppSpacing.radiusLg)
+                    : Radius.circular(AppSpacing.radiusXs),
+                bottomRight: isUser
+                    ? Radius.circular(AppSpacing.radiusXs)
+                    : Radius.circular(AppSpacing.radiusLg),
               ),
               child: SelectableText(
                 message.text,
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: isUser ? AppColors.onPrimary : AppColors.textPrimary,
+                  color: isUser ? AppColors.getOnPrimary(isDark) : AppColors.getTextPrimary(isDark),
                 ),
               ),
             ),
