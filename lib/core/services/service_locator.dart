@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'user_service.dart';
+import 'auth_service.dart';
 
 final GetIt locator = GetIt.instance;
 
@@ -7,6 +8,9 @@ void setupLocator() {
   // Register our UserService as a singleton.
   // It will be created once and live for the entire app session.
   locator.registerSingleton<UserService>(UserService());
+
+  // Register AuthService for Google Sign In
+  locator.registerSingleton<AuthService>(AuthService());
 }
 
 // // Helper functions to manage UserModel in GetIt

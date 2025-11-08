@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:vibe_journal/features/layout/main_app_layout.dart';
 import 'package:vibe_journal/features/legal/presentation/privacy_policy_content.dart';
 import 'package:vibe_journal/features/legal/presentation/terms_and_conditions_content.dart';
@@ -15,6 +16,7 @@ import '../../../../config/theme/app_animations.dart';
 import '../../../../core/services/user_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/animated_button.dart';
 import '../../../../core/widgets/animated_card.dart';
@@ -32,6 +34,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoginMode = true;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   String? _errorMessage;
 
   final _emailController = TextEditingController();
@@ -209,6 +212,56 @@ class _AuthScreenState extends State<AuthScreen> {
       _errorMessage = null;
       _formKey.currentState?.reset();
     });
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    _hapticService.light();
+
+    setState(() {
+      _isGoogleLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final authService = locator<AuthService>();
+      final userCredential = await authService.signInWithGoogle();
+
+      if (userCredential?.user != null) {
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(userCredential!.user!.uid)
+            .get();
+
+        if (userDoc.exists) {
+          final userModel = UserModel.fromFirestore(userDoc);
+          final userService = locator<UserService>();
+          await userService.updateUser(userModel);
+
+          _hapticService.success();
+          _soundService.success();
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainAppLayout()),
+          );
+        }
+      } else {
+        _errorMessage = 'Google Sign-In was cancelled or failed.';
+      }
+    } catch (err) {
+      _hapticService.error();
+      _soundService.error();
+      _errorMessage = 'An error occurred during Google Sign-In. Please try again.';
+      if (kDebugMode) {
+        print('Error during Google Sign-In: $err');
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isGoogleLoading = false;
+      });
+    }
   }
 
   void _showLegalDialog(Widget content) {
@@ -473,7 +526,79 @@ class _AuthScreenState extends State<AuthScreen> {
                             enableHaptic: true,
                             child: Text(_isLoginMode ? 'LOG IN' : 'CREATE ACCOUNT'),
                           ).animate().fadeIn(duration: 300.ms, delay: 450.ms).slideY(begin: 0.2, end: 0),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 24),
+
+                        // OR Divider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.5),
+                                thickness: 1,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'OR',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.getTextSecondary(isDark),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.5),
+                                thickness: 1,
+                              ),
+                            ),
+                          ],
+                        ).animate().fadeIn(duration: 300.ms, delay: 470.ms),
+                        const SizedBox(height: 24),
+
+                        // Google Sign In Button
+                        if (_isGoogleLoading)
+                          Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.getSecondary(isDark),
+                            ),
+                          )
+                        else
+                          AnimatedButton(
+                            onPressed: _handleGoogleSignIn,
+                            enableHaptic: true,
+                            gradient: LinearGradient(
+                              colors: [
+                                isDark ? Colors.grey.shade800 : Colors.white,
+                                isDark ? Colors.grey.shade700 : Colors.grey.shade50,
+                              ],
+                            ),
+                            border: Border.all(
+                              color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                FaIcon(
+                                  FontAwesomeIcons.google,
+                                  color: Colors.red.shade600,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  _isLoginMode ? 'SIGN IN WITH GOOGLE' : 'SIGN UP WITH GOOGLE',
+                                  style: TextStyle(
+                                    color: AppColors.getTextPrimary(isDark),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ).animate().fadeIn(duration: 300.ms, delay: 490.ms).slideY(begin: 0.2, end: 0),
+                        const SizedBox(height: 16),
 
                         TextButton(
                           onPressed: _toggleAuthMode,
@@ -482,7 +607,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ? 'Create new account'
                                 : 'I already have an account',
                           ),
-                        ).animate().fadeIn(duration: 300.ms, delay: 500.ms),
+                        ).animate().fadeIn(duration: 300.ms, delay: 510.ms),
                       ],
                     ),
                   ),
