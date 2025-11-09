@@ -2,10 +2,18 @@ import 'package:get_it/get_it.dart';
 import 'user_service.dart';
 import 'auth_service.dart';
 import 'revenue_cat_service.dart';
+import '../database/app_database.dart';
+import '../api/api_client.dart';
 
 final GetIt locator = GetIt.instance;
 
 void setupLocator() {
+  // Register Database (should be first as other services may depend on it)
+  locator.registerSingleton<AppDatabase>(AppDatabase());
+
+  // Register API Client
+  locator.registerSingleton<ApiClient>(ApiClient.instance);
+
   // Register RevenueCatService FIRST (UserService depends on it)
   locator.registerSingleton<RevenueCatService>(RevenueCatService());
 
