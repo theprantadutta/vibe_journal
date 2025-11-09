@@ -1,9 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
 import 'package:vibe_journal/config/theme/app_spacing.dart';
@@ -16,6 +13,7 @@ import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
 
 import '../../../../core/services/user_service.dart';
+import '../../data/repositories/ai_repository.dart';
 
 class ChatMessage {
   final String text;
@@ -32,6 +30,7 @@ class AiAssistantScreen extends StatefulWidget {
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
   UserModel? _userModel;
   final _userService = locator<UserService>();
+  final _aiRepository = locator<AiRepository>();
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = [];
   bool _isAwaitingResponse = false;
@@ -57,32 +56,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Future<void> _loadUserAndInitiateChat() async {
-    // Standard robust way to get the user model
-    if (locator.isRegistered<UserModel>()) {
-      _userModel = locator<UserModel>();
+    // Get user from service
+    if (_userService.isUserLoggedIn) {
+      _userModel = _userService.currentUser;
     } else {
-      // Fallback logic to re-fetch the user model if it's not in the locator
-      if (kDebugMode) {
-        print(
-          "⚠️ UserModel not found in AiAssistantScreen. Attempting re-fetch.",
-        );
-      }
-      final currentUserAuth = FirebaseAuth.instance.currentUser;
-      if (currentUserAuth != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUserAuth.uid)
-            .get();
-        final userService = locator<UserService>();
-        if (userDoc.exists) {
-          final model = UserModel.fromFirestore(userDoc);
-          await userService.updateUser(model);
-          _userModel = model;
-        } else {
-          // Critical error state: user exists in Auth but not DB. Sign out for safety.
-          await FirebaseAuth.instance.signOut();
-          await userService.clearUser();
-        }
+      // Try to fetch user from backend if not in memory
+      final fetchSuccess = await _userService.fetchAndUpdateUser();
+      if (fetchSuccess && _userService.isUserLoggedIn) {
+        _userModel = _userService.currentUser;
       }
     }
 
@@ -124,30 +105,48 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _scrollToBottom();
 
     try {
-      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable(
-        'aiAssistant',
-      );
-      final result = await callable.call<Map<String, dynamic>>({
-        'action': action,
-        'text': text,
-      });
-      final String responseText =
-          result.data['responseText'] ?? "Sorry, I couldn't process that.";
-      _messages.insert(0, ChatMessage(text: responseText, isFromUser: false));
-    } on FirebaseFunctionsException catch (e) {
-      if (kDebugMode) {
-        print("Cloud Function Error: ${e.code} - ${e.message}");
+      String responseText;
+
+      if (action == 'get_prompt') {
+        // Get journaling prompt from backend
+        final response = await _aiRepository.getJournalingPrompt();
+
+        if (response.isSuccess && response.data != null) {
+          responseText = response.data!;
+        } else {
+          responseText = response.error ?? "Sorry, I couldn't generate a prompt.";
+        }
+      } else if (action == 'get_feedback') {
+        // Get reflective feedback from backend
+        // For now, just sending the text as context
+        final response = await _aiRepository.getReflectiveFeedback(
+          transcription: text,
+        );
+
+        if (response.isSuccess && response.data != null) {
+          responseText = response.data!;
+        } else {
+          responseText = response.error ?? "Sorry, I couldn't generate feedback.";
+        }
+      } else if (action == 'chat') {
+        // For general chat, we can use the feedback endpoint with just the text
+        final response = await _aiRepository.getReflectiveFeedback(
+          transcription: text,
+        );
+
+        if (response.isSuccess && response.data != null) {
+          responseText = response.data!;
+        } else {
+          responseText = response.error ?? "Sorry, I couldn't respond to that.";
+        }
+      } else {
+        responseText = "Sorry, I don't understand that action.";
       }
-      _messages.insert(
-        0,
-        ChatMessage(
-          text: "Sorry, an error occurred: ${e.message}",
-          isFromUser: false,
-        ),
-      );
+
+      _messages.insert(0, ChatMessage(text: responseText, isFromUser: false));
     } catch (e) {
       if (kDebugMode) {
-        print("Generic Error: $e");
+        print("AI Assistant Error: $e");
       }
       _messages.insert(
         0,

@@ -7,6 +7,7 @@ import '../api/api_client.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
 import '../../features/auth/data/repositories/user_repository.dart';
 import '../../features/journal/data/repositories/vibe_repository.dart';
+import '../../features/ai_assistant/data/repositories/ai_repository.dart';
 
 final GetIt locator = GetIt.instance;
 
@@ -26,6 +27,9 @@ void setupLocator() {
   );
   locator.registerSingleton<VibeRepository>(
     VibeRepository(locator<ApiClient>(), locator<AppDatabase>()),
+  );
+  locator.registerSingleton<AiRepository>(
+    AiRepository(locator<ApiClient>()),
   );
 
   // Register RevenueCatService FIRST (UserService depends on it)
