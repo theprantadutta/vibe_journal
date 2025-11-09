@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:just_audio/just_audio.dart' as ja;
@@ -17,10 +15,10 @@ import 'package:vibe_journal/features/journal/domain/models/vibe_model.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/services/user_service.dart';
+import '../../data/repositories/vibe_repository.dart';
+import '../../../ai_assistant/data/repositories/ai_repository.dart';
 
 class PlayerStreamData {
   final Duration position;
@@ -47,6 +45,8 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   // State variable for the user model
   UserModel? _userModel;
   final _userService = locator<UserService>();
+  final _vibeRepository = locator<VibeRepository>();
+  final _aiRepository = locator<AiRepository>();
 
   final _hapticService = HapticService();
   final _soundService = SoundService();
@@ -61,23 +61,13 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
   // Added this function to robustly load the user model
   Future<void> _loadUserModel() async {
-    if (locator.isRegistered<UserModel>()) {
-      final model = locator<UserModel>();
-      if (mounted) setState(() => _userModel = model);
+    if (_userService.isUserLoggedIn) {
+      if (mounted) setState(() => _userModel = _userService.currentUser);
     } else {
-      // Fallback logic if GetIt is not populated (e.g., hot restart)
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        if (doc.exists && mounted) {
-          final model = UserModel.fromFirestore(doc);
-          final userService = locator<UserService>();
-          await userService.updateUser(model);
-          setState(() => _userModel = model);
-        }
+      // Try to fetch from backend
+      final fetchSuccess = await _userService.fetchAndUpdateUser();
+      if (fetchSuccess && _userService.isUserLoggedIn && mounted) {
+        setState(() => _userModel = _userService.currentUser);
       }
     }
   }
@@ -93,16 +83,23 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     );
 
     try {
-      final storageRef = FirebaseStorage.instance.ref(widget.vibe.audioPath);
-      final url = await storageRef.getDownloadURL();
+      // Get audio URL from backend
+      final urlResponse = await _vibeRepository.getAudioUrl(widget.vibe.id);
+
+      if (!urlResponse.isSuccess || urlResponse.data == null) {
+        throw Exception(urlResponse.error ?? 'Failed to get audio URL');
+      }
+
+      final url = urlResponse.data!;
       await _player.setUrl(url);
     } catch (e) {
+      // ignore: avoid_print
       print("Error setting up player: $e");
       if (mounted) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Error: Could not load audio."),
+            content: const Text("Error: Could not load audio."),
             backgroundColor: AppColors.getError(isDark),
           ),
         );
@@ -122,15 +119,17 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     setState(() => _isFetchingFeedback = true);
 
     try {
-      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable(
-        'aiAssistant',
+      // Get reflective feedback from backend AI
+      final response = await _aiRepository.getReflectiveFeedback(
+        transcription: widget.vibe.transcription,
+        mood: widget.vibe.mood,
+        durationSeconds: (widget.vibe.duration / 1000).round(),
       );
-      final result = await callable.call<Map<String, dynamic>>({
-        'action': 'get_feedback',
-        'text': widget.vibe.transcription,
-      });
-      final String responseText =
-          result.data['responseText'] ?? "Sorry, I couldn't process that.";
+
+      final String responseText = response.isSuccess && response.data != null
+          ? response.data!
+          : response.error ?? "Sorry, I couldn't generate feedback.";
+
       if (mounted) setState(() => _aiFeedback = responseText);
     } catch (e) {
       print("Error calling AI function: $e");
