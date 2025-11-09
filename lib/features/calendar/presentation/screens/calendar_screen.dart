@@ -2,10 +2,8 @@
 
 import 'dart:async';
 import 'dart:collection';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:intl/intl.dart';
@@ -17,8 +15,10 @@ import '../../../../config/theme/app_spacing.dart';
 import '../../../../config/theme/app_animations.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/service_locator.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../journal/domain/models/vibe_model.dart';
+import '../../../journal/data/repositories/vibe_repository.dart';
 import '../../../journal/presentation/screens/vibe_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -32,6 +32,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late final ja.AudioPlayer _player;
   final _hapticService = HapticService();
   final _soundService = SoundService();
+  final _vibeRepository = locator<VibeRepository>();
 
   // State for calendar and data
   final LinkedHashMap<DateTime, List<VibeModel>> _vibesByDay =
@@ -45,7 +46,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // State for managing data fetching
   bool _isLoading = true;
-  StreamSubscription? _vibeSubscription;
+  Timer? _pollingTimer;
 
   // State for audio playback
   String? _currentlyPlayingOrLoadingId;
@@ -77,8 +78,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-  void _fetchVibesForMonth(DateTime month) {
-    _vibeSubscription?.cancel();
+  void _fetchVibesForMonth(DateTime month) async {
+    // Cancel existing polling timer
+    _pollingTimer?.cancel();
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (mounted) setState(() => _isLoading = false);
@@ -86,54 +89,58 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
     if (mounted) setState(() => _isLoading = true);
 
-    final firstDayOfMonth = DateTime.utc(month.year, month.month, 1);
-    final lastDayOfMonth = DateTime.utc(
-      month.year,
-      month.month + 1,
-      0,
-    ).add(const Duration(days: 1));
+    // Initial fetch
+    await _fetchAndProcessVibes();
 
-    final query = FirebaseFirestore.instance
-        .collection('vibes')
-        .where('userId', isEqualTo: user.uid)
-        .where(
-          'createdAt',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(firstDayOfMonth),
-        )
-        .where('createdAt', isLessThan: Timestamp.fromDate(lastDayOfMonth));
+    // Setup polling (every 15 seconds)
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      if (!mounted) return;
+      await _fetchAndProcessVibes();
+    });
+  }
 
-    _vibeSubscription = query.snapshots().listen(
-      (snapshot) {
-        _vibesByDay.clear();
-        for (final doc in snapshot.docs) {
-          final vibe = VibeModel.fromFirestore(
-            doc as DocumentSnapshot<Map<String, dynamic>>,
-          );
-          final day = DateTime.utc(
-            vibe.createdAt.toDate().year,
-            vibe.createdAt.toDate().month,
-            vibe.createdAt.toDate().day,
-          );
+  Future<void> _fetchAndProcessVibes() async {
+    try {
+      // Fetch all vibes from backend (with pagination support if needed)
+      final response = await _vibeRepository.fetchVibes(pageSize: 500);
 
-          if (_vibesByDay[day] == null) {
-            _vibesByDay[day] = [];
-          }
-          _vibesByDay[day]!.add(vibe);
-        }
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _selectedDayVibes = _getVibesForDay(_selectedDay ?? DateTime.now());
-          });
-        }
-      },
-      onError: (error) {
+      if (!response.isSuccess || response.data == null) {
         if (kDebugMode) {
-          print("Error fetching vibes: $error");
+          print("Error fetching vibes: ${response.error}");
         }
         if (mounted) setState(() => _isLoading = false);
-      },
-    );
+        return;
+      }
+
+      final allVibes = response.data!;
+
+      // Clear and rebuild vibes by day map
+      _vibesByDay.clear();
+      for (final vibe in allVibes) {
+        final day = DateTime.utc(
+          vibe.createdAt.toDate().year,
+          vibe.createdAt.toDate().month,
+          vibe.createdAt.toDate().day,
+        );
+
+        if (_vibesByDay[day] == null) {
+          _vibesByDay[day] = [];
+        }
+        _vibesByDay[day]!.add(vibe);
+      }
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _selectedDayVibes = _getVibesForDay(_selectedDay ?? DateTime.now());
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error fetching vibes: $e");
+      }
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   List<VibeModel> _getVibesForDay(DateTime day) {
@@ -157,7 +164,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _handlePlayback(VibeModel vibe) async {
     _hapticService.audioPlayPause(); // Add haptic feedback
     final vibeId = vibe.id;
-    final storagePath = vibe.audioPath;
 
     // If tapping the currently playing vibe
     if (_currentlyPlayingOrLoadingId == vibeId) {
@@ -178,8 +184,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
 
     try {
-      final storageRef = FirebaseStorage.instance.ref(storagePath);
-      final url = await storageRef.getDownloadURL();
+      // Get audio URL from backend
+      final urlResponse = await _vibeRepository.getAudioUrl(vibeId);
+
+      if (!urlResponse.isSuccess || urlResponse.data == null) {
+        throw Exception(urlResponse.error ?? 'Failed to get audio URL');
+      }
+
+      final url = urlResponse.data!;
       await _player.setUrl(url);
       _player.play();
     } catch (e) {
@@ -199,7 +211,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   void dispose() {
-    _vibeSubscription?.cancel();
+    _pollingTimer?.cancel();
     _player.dispose();
     super.dispose();
   }

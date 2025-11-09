@@ -3,10 +3,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -23,6 +20,7 @@ import '../../../../core/services/sound_service.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
+import '../../../journal/data/repositories/vibe_repository.dart';
 import '../../../../config/theme/app_colors.dart';
 
 enum ChartTimeRange { week, month, all }
@@ -42,6 +40,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
   final _hapticService = HapticService();
   final _soundService = SoundService();
+  final _vibeRepository = locator<VibeRepository>();
+  final _userService = locator<UserService>();
 
   // Audio Player for "Future Me"
   late final ja.AudioPlayer _player;
@@ -84,24 +84,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
   }
 
   Future<void> _loadInsights() async {
-    if (locator.isRegistered<UserModel>()) {
-      _userModel = locator<UserModel>();
+    // Get user from service
+    if (_userService.isUserLoggedIn) {
+      _userModel = _userService.currentUser;
     } else {
-      final currentUserAuth = FirebaseAuth.instance.currentUser;
-      if (currentUserAuth != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUserAuth.uid)
-            .get();
-        final userService = locator<UserService>();
-        if (userDoc.exists) {
-          final model = UserModel.fromFirestore(userDoc);
-          await userService.updateUser(model);
-          _userModel = model;
-        } else {
-          FirebaseAuth.instance.signOut();
-          userService.clearUser();
-        }
+      // Try to fetch user from backend if not in memory
+      final fetchSuccess = await _userService.fetchAndUpdateUser();
+      if (fetchSuccess && _userService.isUserLoggedIn) {
+        _userModel = _userService.currentUser;
       }
     }
 
@@ -116,29 +106,36 @@ class _InsightsScreenState extends State<InsightsScreen> {
     final user = _userModel;
     if (user == null) return;
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('vibes')
-        .where('userId', isEqualTo: user.uid)
-        .orderBy('createdAt') // Fetch oldest first for streak/chart calculation
-        .get();
+    try {
+      // Fetch all vibes from REST API
+      final response = await _vibeRepository.fetchVibes(pageSize: 500);
 
-    _allVibes = snapshot.docs
-        .map(
-          (doc) => VibeModel.fromFirestore(
-            doc as DocumentSnapshot<Map<String, dynamic>>,
-          ),
-        )
-        .toList();
+      if (!response.isSuccess || response.data == null) {
+        if (kDebugMode) {
+          print("Error fetching vibes: ${response.error}");
+        }
+        return;
+      }
 
-    // Process data for free insights
-    _moodCounts = {'positive': 0, 'negative': 0, 'neutral': 0, 'unknown': 0};
-    for (var vibe in _allVibes) {
-      _moodCounts.update(vibe.mood, (v) => v + 1, ifAbsent: () => 1);
+      _allVibes = response.data!;
+
+      // Sort by created date (oldest first for streak/chart calculation)
+      _allVibes.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      // Process data for free insights
+      _moodCounts = {'positive': 0, 'negative': 0, 'neutral': 0, 'unknown': 0};
+      for (var vibe in _allVibes) {
+        _moodCounts.update(vibe.mood, (v) => v + 1, ifAbsent: () => 1);
+      }
+      _longestStreak = _calculateLongestStreak();
+
+      // Process data for premium charts
+      _updateChartData();
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error fetching and processing vibe data: $e");
+      }
     }
-    _longestStreak = _calculateLongestStreak();
-
-    // Process data for premium charts
-    _updateChartData();
   }
 
   void _updateChartData() {
@@ -241,9 +238,17 @@ class _InsightsScreenState extends State<InsightsScreen> {
     try {
       final List<ja.AudioSource> playlist = [];
       for (var vibe in recentVibes) {
-        final url = await FirebaseStorage.instance
-            .ref(vibe.audioPath)
-            .getDownloadURL();
+        // Get audio URL from backend
+        final urlResponse = await _vibeRepository.getAudioUrl(vibe.id);
+
+        if (!urlResponse.isSuccess || urlResponse.data == null) {
+          if (kDebugMode) {
+            print("Failed to get audio URL for vibe ${vibe.id}");
+          }
+          continue; // Skip this vibe if we can't get the URL
+        }
+
+        final url = urlResponse.data!;
         playlist.add(
           ja.ClippingAudioSource(
             child: ja.AudioSource.uri(Uri.parse(url)),

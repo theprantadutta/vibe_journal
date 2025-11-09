@@ -91,6 +91,11 @@ class _JournalScreenState extends State<JournalScreen>
   bool _showUpgradeBanner = false;
   static const String _bannerDismissedKey = 'upgrade_banner_dismissed';
 
+  // Vibes list state
+  List<VibeModel> _recentVibes = [];
+  bool _isLoadingVibes = false;
+  Timer? _vibesPollingTimer;
+
   @override
   void initState() {
     super.initState();
@@ -124,6 +129,7 @@ class _JournalScreenState extends State<JournalScreen>
 
     _initAudio();
     _loadUserModelAndBannerState();
+    _startVibesPolling();
     FlutterNativeSplash.remove();
   }
 
@@ -135,6 +141,7 @@ class _JournalScreenState extends State<JournalScreen>
     _amplitudeSubscription?.cancel();
     _durationTimer?.cancel();
     _maxDurationTimer?.cancel();
+    _vibesPollingTimer?.cancel();
     _recorder.dispose();
     _player.dispose();
     super.dispose();
@@ -336,6 +343,8 @@ class _JournalScreenState extends State<JournalScreen>
       if (mounted) {
         SnackBarUtils.showSuccess(context, message: 'Vibe saved successfully!');
         _resetToReadyState();
+        // Refresh vibes list
+        _fetchRecentVibes();
       }
     } catch (e) {
       if (mounted) {
@@ -408,6 +417,39 @@ class _JournalScreenState extends State<JournalScreen>
       if (mounted) setState(() => _showUpgradeBanner = true);
     } else {
       if (mounted) setState(() => _showUpgradeBanner = false);
+    }
+  }
+
+  void _startVibesPolling() {
+    // Initial fetch
+    _fetchRecentVibes();
+
+    // Poll every 15 seconds
+    _vibesPollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _fetchRecentVibes();
+    });
+  }
+
+  Future<void> _fetchRecentVibes() async {
+    if (_isLoadingVibes) return;
+
+    setState(() => _isLoadingVibes = true);
+
+    try {
+      final response = await _vibeRepository.fetchVibes(page: 1, pageSize: 5);
+
+      if (response.isSuccess && response.data != null) {
+        if (mounted) {
+          setState(() {
+            _recentVibes = response.data!;
+            _isLoadingVibes = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoadingVibes = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingVibes = false);
     }
   }
 
@@ -814,51 +856,32 @@ class _JournalScreenState extends State<JournalScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('vibes')
-          .where('userId', isEqualTo: _currentUserModel!.uid)
-          .orderBy('createdAt', descending: true)
-          .limit(5)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return EmptyStates.error(
-            context: context,
-            message: 'Failed to load vibes',
-            onRetry: () => setState(() {}),
-          );
-        }
+    // Show loading shimmer on first load
+    if (_isLoadingVibes && _recentVibes.isEmpty) {
+      return Column(
+        children: List.generate(
+          3,
+          (index) => ShimmerLoading(
+            child: ShimmerShapes.listItem(),
+          ),
+        ),
+      );
+    }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Column(
-            children: List.generate(
-              3,
-              (index) => ShimmerLoading(
-                child: ShimmerShapes.listItem(),
-              ),
-            ),
-          );
-        }
+    // Show empty state
+    if (_recentVibes.isEmpty) {
+      return EmptyStates.noVibes(context: context);
+    }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return EmptyStates.noVibes(context: context);
-        }
-
-        final vibes = snapshot.data!.docs;
-
-        return ListView.builder(
-          itemCount: vibes.length,
-          padding: EdgeInsets.zero,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemBuilder: (context, index) {
-            final vibe = VibeModel.fromFirestore(
-              vibes[index] as DocumentSnapshot<Map<String, dynamic>>,
-            );
-            return _buildVibeCard(vibe, theme, isDark, index);
-          },
-        );
+    // Show vibes list
+    return ListView.builder(
+      itemCount: _recentVibes.length,
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        final vibe = _recentVibes[index];
+        return _buildVibeCard(vibe, theme, isDark, index);
       },
     );
   }
