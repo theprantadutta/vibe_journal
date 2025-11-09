@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -28,6 +27,7 @@ import '../../../../core/widgets/snackbar_utils.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
 import '../../../premium/presentation/screens/premium_features_screen.dart';
+import '../../data/repositories/vibe_repository.dart';
 import 'vibe_detail_screen.dart';
 
 class RecordingProgress {
@@ -72,6 +72,7 @@ class _JournalScreenState extends State<JournalScreen>
 
   UserModel? _currentUserModel;
   final _userService = locator<UserService>();
+  final _vibeRepository = locator<VibeRepository>();
   final _hapticService = HapticService();
   bool _isSavingVibe = false;
 
@@ -295,39 +296,42 @@ class _JournalScreenState extends State<JournalScreen>
     await _hapticService.vibeSaved();
 
     try {
-      final user = FirebaseAuth.instance.currentUser!;
+      // NEW: Upload audio file to REST API backend
       final fileName = 'vibe_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('vibes/${user.uid}/$fileName');
+      final audioFile = File(_tempAudioPath!);
 
-      await storageRef.putFile(File(_tempAudioPath!));
-      final downloadUrl = await storageRef.getDownloadURL();
+      // Upload audio file
+      final uploadResponse = await _vibeRepository.uploadAudioFile(audioFile);
 
-      final now = Timestamp.now();
-      await _firestore.collection('vibes').add({
-        'userId': user.uid,
-        'audioPath': downloadUrl,
-        'fileName': fileName,
-        'duration': _duration.inMilliseconds,
-        'createdAt': now,
-        'transcription': '',
-        'mood': 'unknown',
-      });
-
-      await _firestore.collection('users').doc(user.uid).update({
-        'cloudVibeCount': FieldValue.increment(1),
-      });
-
-      // Reload user model from Firestore
-      final updatedUserDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (updatedUserDoc.exists) {
-        final updatedUser = UserModel.fromFirestore(updatedUserDoc);
-        await _userService.updateUser(updatedUser);
-        if (mounted) setState(() => _currentUserModel = updatedUser);
+      if (!uploadResponse.isSuccess || uploadResponse.data == null) {
+        throw Exception(uploadResponse.error ?? 'Failed to upload audio');
       }
 
-      await File(_tempAudioPath!).delete();
+      final audioPath = uploadResponse.data!;
+
+      // Create vibe entry
+      final createResponse = await _vibeRepository.createVibe(
+        audioPath: audioPath,
+        fileName: fileName,
+        durationMs: _duration.inMilliseconds,
+      );
+
+      if (!createResponse.isSuccess) {
+        throw Exception(createResponse.error ?? 'Failed to create vibe');
+      }
+
+      // Fetch updated user profile from backend (cloud count updated automatically)
+      await _userService.fetchAndUpdateUser();
+
+      // Update local user model
+      if (_userService.isUserLoggedIn) {
+        if (mounted) {
+          setState(() => _currentUserModel = _userService.currentUser);
+        }
+      }
+
+      // Delete temporary audio file
+      await audioFile.delete();
 
       if (mounted) {
         SnackBarUtils.showSuccess(context, message: 'Vibe saved successfully!');
