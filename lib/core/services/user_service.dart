@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../features/auth/domain/models/user_model.dart';
+import '../../features/auth/data/repositories/user_repository.dart';
 import '../../features/premium/domain/models/plan_details_model.dart';
 import 'service_locator.dart';
 import 'revenue_cat_service.dart';
@@ -10,6 +11,12 @@ class UserService {
   UserModel? _currentUser;
   PlanDetailsModel? _currentPlanDetails; // New: To hold plan limits
   final _revenueCatService = locator<RevenueCatService>();
+  late final UserRepository _userRepository;
+
+  UserService() {
+    // Get user repository from service locator
+    _userRepository = locator<UserRepository>();
+  }
 
   // Getters for user data
   UserModel get currentUser => _currentUser!;
@@ -30,7 +37,32 @@ class UserService {
   int get maxRecordingDurationMinutes =>
       _currentPlanDetails?.maxRecordingDurationMinutes ?? 5;
 
-  // This method now fetches plan details after updating the user
+  /// Fetch user profile from backend API (preferred) or Firestore (fallback)
+  /// This is the main method to refresh user data
+  Future<bool> fetchAndUpdateUser() async {
+    try {
+      // Try to fetch from backend API first
+      final response = await _userRepository.fetchCurrentUser();
+
+      if (response.isSuccess && response.data != null) {
+        await updateUser(response.data!);
+        return true;
+      } else {
+        if (kDebugMode) {
+          print("⚠️ Failed to fetch user from backend: ${response.error}");
+        }
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("🚨 Error fetching user: $e");
+      }
+      return false;
+    }
+  }
+
+  /// Update user in memory and perform related operations
+  /// This method now works with both Firestore and backend API data
   Future<void> updateUser(UserModel user) async {
     _currentUser = user;
 
@@ -57,10 +89,11 @@ class UserService {
       if (kDebugMode) {
         print("🚨 Error logging in to RevenueCat: $e");
       }
-      // Continue even if RevenueCat fails - we can fall back to Firestore plan
+      // Continue even if RevenueCat fails - we can fall back to plan from backend
     }
 
-    // After getting the user, fetch their plan details
+    // After getting the user, fetch their plan details from Firestore (backward compatibility)
+    // TODO: Eventually this should come from backend API
     await _fetchPlanDetails(user.plan);
   }
 
@@ -86,6 +119,18 @@ class UserService {
     _currentPlanDetails = null;
     if (locator.isRegistered<UserModel>()) {
       locator.unregister<UserModel>();
+    }
+
+    // Clear cached user data from local database
+    try {
+      await _userRepository.clearCache();
+      if (kDebugMode) {
+        print("✅ Local user cache cleared");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("🚨 Error clearing user cache: $e");
+      }
     }
 
     // Log out from RevenueCat

@@ -160,10 +160,22 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       if (userModel != null) {
+        final userService = locator<UserService>();
+
+        // Try to fetch user from backend API (preferred)
+        final fetchedFromBackend = await userService.fetchAndUpdateUser();
+
+        if (!fetchedFromBackend) {
+          // Fallback to Firestore data if backend fetch failed
+          if (kDebugMode) {
+            print('⚠️ Using Firestore data as fallback');
+          }
+          await userService.updateUser(userModel);
+        }
+
         _hapticService.success();
         _soundService.success();
-        final userService = locator<UserService>();
-        await userService.updateUser(userModel);
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const MainAppLayout()),
@@ -227,24 +239,35 @@ class _AuthScreenState extends State<AuthScreen> {
       final userCredential = await authService.signInWithGoogle();
 
       if (userCredential?.user != null) {
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(userCredential!.user!.uid)
-            .get();
+        final userService = locator<UserService>();
 
-        if (userDoc.exists) {
-          final userModel = UserModel.fromFirestore(userDoc);
-          final userService = locator<UserService>();
-          await userService.updateUser(userModel);
+        // Try to fetch user from backend API (preferred)
+        final fetchedFromBackend = await userService.fetchAndUpdateUser();
 
-          _hapticService.success();
-          _soundService.success();
+        if (!fetchedFromBackend) {
+          // Fallback to Firestore data if backend fetch failed
+          if (kDebugMode) {
+            print('⚠️ Using Firestore data as fallback for Google Sign-In');
+          }
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainAppLayout()),
-          );
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(userCredential!.user!.uid)
+              .get();
+
+          if (userDoc.exists) {
+            final userModel = UserModel.fromFirestore(userDoc);
+            await userService.updateUser(userModel);
+          }
         }
+
+        _hapticService.success();
+        _soundService.success();
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainAppLayout()),
+        );
       } else {
         _errorMessage = 'Google Sign-In was cancelled or failed.';
       }
