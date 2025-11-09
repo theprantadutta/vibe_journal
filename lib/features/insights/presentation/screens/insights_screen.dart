@@ -208,6 +208,16 @@ class _InsightsScreenState extends State<InsightsScreen> {
   }
 
   Future<void> _playFutureMeMashup() async {
+    // Runtime premium check
+    final userService = locator<UserService>();
+    if (!userService.isPremium) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PremiumFeaturesScreen()),
+      );
+      return;
+    }
+
     if (_player.playing) {
       _player.stop();
       return;
@@ -303,7 +313,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
     if (_userModel == null) {
       return const Center(child: Text("Could not load user data."));
     }
-    bool isPremium = _userModel!.plan == 'premium';
+    final userService = locator<UserService>();
+    bool isPremium = userService.isPremium;
 
     return Scaffold(
       body: SingleChildScrollView(

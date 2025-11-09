@@ -262,7 +262,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isPremium = _userModel.plan == 'premium';
+    final isPremium = _userService.isPremium;
 
     return Scaffold(
       appBar: AppBar(title: const Text('My Profile')),

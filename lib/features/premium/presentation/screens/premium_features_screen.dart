@@ -58,18 +58,6 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
       'description': 'Protect your private thoughts with fingerprint or face recognition',
       'gradient': [Color(0xFF30cfd0), Color(0xFF330867)],
     },
-    {
-      'icon': Icons.article_outlined,
-      'title': 'Full Transcription',
-      'description': 'Automatically transcribe all your voice vibes to searchable text',
-      'gradient': [Color(0xFFa8edea), Color(0xFFfed6e3)],
-    },
-    {
-      'icon': Icons.priority_high_rounded,
-      'title': 'Priority Support',
-      'description': 'Get fast, dedicated support whenever you need help',
-      'gradient': [Color(0xFFff9a9e), Color(0xFFfecfef)],
-    },
   ];
 
   @override

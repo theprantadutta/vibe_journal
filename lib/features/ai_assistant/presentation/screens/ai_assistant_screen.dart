@@ -31,6 +31,7 @@ class AiAssistantScreen extends StatefulWidget {
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
   UserModel? _userModel;
+  final _userService = locator<UserService>();
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = [];
   bool _isAwaitingResponse = false;
@@ -88,7 +89,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     // Now that the model is loaded, update the state and add the initial message
     if (mounted && _userModel != null) {
       setState(() {
-        if (_userModel!.plan == 'premium' && _messages.isEmpty) {
+        if (_userService.isPremium && _messages.isEmpty) {
           _messages.add(
             ChatMessage(
               text:
@@ -181,7 +182,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    bool isPremium = _userModel!.plan == 'premium';
+    bool isPremium = _userService.isPremium;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

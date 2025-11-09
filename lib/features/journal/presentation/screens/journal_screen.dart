@@ -190,7 +190,7 @@ class _JournalScreenState extends State<JournalScreen>
         _progressStreamController.add(RecordingProgress(_duration, normalized));
       });
 
-      final maxDurationMs = (_currentUserModel?.plan == 'premium' ? 60 : 5) * 60 * 1000;
+      final maxDurationMs = (_userService.isPremium ? 60 : 5) * 60 * 1000;
       _maxDurationTimer = Timer(Duration(milliseconds: maxDurationMs), () {
         if (_recordingState == AppRecordingState.recording) {
           _stopRecording();
@@ -240,6 +240,56 @@ class _JournalScreenState extends State<JournalScreen>
 
   Future<void> _saveVibe() async {
     if (_tempAudioPath == null || _currentUserModel == null || _isSavingVibe) return;
+
+    // Check cloud storage limit for free users
+    if (!_userService.isPremium &&
+        _currentUserModel!.cloudVibeCount >= _userService.maxCloudVibes) {
+      _hapticService.error();
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.cloud_off_rounded, color: AppColors.getSecondary(isDark)),
+                  const SizedBox(width: 12),
+                  const Text('Storage Limit Reached'),
+                ],
+              ),
+              content: Text(
+                'You\'ve reached the limit of ${_userService.maxCloudVibes} vibes. '
+                'Upgrade to Premium for unlimited cloud storage!',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PremiumFeaturesScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.getSecondary(isDark),
+                  ),
+                  child: const Text('Upgrade to Premium'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+      return;
+    }
 
     setState(() => _isSavingVibe = true);
     await _hapticService.vibeSaved();
@@ -324,7 +374,7 @@ class _JournalScreenState extends State<JournalScreen>
       await locator<UserService>().updateUser(userModel);
       if (!mounted) return;
       setState(() => _currentUserModel = userModel);
-      if (userModel.plan == 'free') _checkShowUpgradeBanner();
+      if (!_userService.isPremium) _checkShowUpgradeBanner();
     } else {
       final currentUserAuth = FirebaseAuth.instance.currentUser;
       if (currentUserAuth != null) {
@@ -336,7 +386,7 @@ class _JournalScreenState extends State<JournalScreen>
           await userService.updateUser(model);
           if (!mounted) return;
           setState(() => _currentUserModel = model);
-          if (model.plan == 'free') _checkShowUpgradeBanner();
+          if (!_userService.isPremium) _checkShowUpgradeBanner();
         } else {
           FirebaseAuth.instance.signOut();
           userService.clearUser();

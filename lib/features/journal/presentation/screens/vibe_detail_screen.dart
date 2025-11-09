@@ -46,6 +46,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
   // State variable for the user model
   UserModel? _userModel;
+  final _userService = locator<UserService>();
 
   final _hapticService = HapticService();
   final _soundService = SoundService();
@@ -347,7 +348,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
   // --- THIS IS THE CORRECTED WIDGET ---
   Widget _buildAiFeedbackSection(ThemeData theme, bool isDark) {
-    final bool isPremium = _userModel?.plan == 'premium';
+    final bool isPremium = _userService.isPremium;
 
     // If feedback has already been fetched, display it (for premium users)
     if (_aiFeedback != null && isPremium) {

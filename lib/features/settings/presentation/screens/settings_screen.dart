@@ -11,6 +11,7 @@ import '../../../../core/services/biometric_auth_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/service_locator.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/user_service.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../../core/widgets/snackbar_utils.dart';
 import '../../../account/presentation/screens/profile_screen.dart';
@@ -32,6 +33,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final UserModel _userModel = locator<UserModel>();
+  final _userService = locator<UserService>();
   final _hapticService = HapticService();
   final _soundService = SoundService();
 
@@ -101,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = _userModel.plan == 'premium';
+    final isPremium = _userService.isPremium;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
