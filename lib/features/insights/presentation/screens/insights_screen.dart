@@ -13,7 +13,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
+import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
 import '../../../../core/services/service_locator.dart';
 import '../../../../core/services/user_service.dart';
 import '../../../../config/theme/app_spacing.dart';
@@ -689,7 +689,9 @@ class _PremiumFeatureLock extends StatelessWidget {
           ? null
           : () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const UpgradeScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const PremiumFeaturesScreen(),
+                ),
               );
             },
       child: Stack(

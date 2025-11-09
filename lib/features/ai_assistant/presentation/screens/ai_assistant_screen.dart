@@ -13,7 +13,7 @@ import 'package:vibe_journal/core/services/sound_service.dart';
 import 'package:vibe_journal/core/widgets/animated_card.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
-import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
+import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
 
 import '../../../../core/services/user_service.dart';
 
@@ -80,7 +80,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         } else {
           // Critical error state: user exists in Auth but not DB. Sign out for safety.
           await FirebaseAuth.instance.signOut();
-          userService.clearUser();
+          await userService.clearUser();
         }
       }
     }
@@ -320,7 +320,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const PremiumFeaturesScreen(),
+                  ),
                 ),
                 icon: const Icon(Icons.star_rounded),
                 label: const Text("Upgrade to Premium"),

@@ -27,7 +27,7 @@ import '../../../../core/widgets/shimmer_loading.dart';
 import '../../../../core/widgets/snackbar_utils.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
-import '../../../premium/presentation/screens/upgrade_screen.dart';
+import '../../../premium/presentation/screens/premium_features_screen.dart';
 import 'vibe_detail_screen.dart';
 
 class RecordingProgress {
@@ -496,7 +496,7 @@ class _JournalScreenState extends State<JournalScreen>
         _hapticService.light();
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+          MaterialPageRoute(builder: (_) => const PremiumFeaturesScreen()),
         );
       },
       child: Row(

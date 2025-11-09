@@ -16,7 +16,7 @@ import 'package:vibe_journal/core/widgets/animated_button.dart';
 import 'package:vibe_journal/features/journal/domain/models/vibe_model.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
-import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
+import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -443,7 +443,9 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
               onPressed: () {
                 _hapticService.light();
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const PremiumFeaturesScreen(),
+                  ),
                 );
               },
               child: const Text("Upgrade to Unlock"),

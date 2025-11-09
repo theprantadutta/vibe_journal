@@ -1,4 +1,5 @@
 // lib/features/onboarding/presentation/screens/onboarding_screen.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../config/theme/app_colors.dart';
@@ -6,9 +7,11 @@ import '../../../../config/theme/app_spacing.dart';
 import '../../../../config/theme/app_animations.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/service_locator.dart';
+import '../../../../core/services/user_service.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/animated_button.dart';
-import '../../../auth/presentation/screens/auth_screen.dart';
+import '../../../auth/presentation/widgets/auth_guard.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -57,9 +60,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
 
+    // Sign out any existing Firebase Auth session
+    await FirebaseAuth.instance.signOut();
+
+    // Clear any user service data
+    if (locator.isRegistered<UserService>()) {
+      await locator<UserService>().clearUser();
+    }
+
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AuthScreen()),
+      // Navigate back to AuthGuard with a fresh instance to re-evaluate auth state
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthGuard()),
+        (route) => false,
       );
     }
   }

@@ -17,8 +17,9 @@ import '../../../account/presentation/screens/profile_screen.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../legal/presentation/privacy_policy_content.dart';
 import '../../../legal/presentation/terms_and_conditions_content.dart';
-import '../../../premium/presentation/screens/upgrade_screen.dart';
+import '../../../premium/presentation/screens/premium_features_screen.dart';
 import 'notification_settings_screen.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 const String kBiometricLockEnabled = 'biometric_lock_enabled';
 
@@ -130,19 +131,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
-              if (!isPremium) ...[
+              _buildDivider(),
+              _buildSettingsTile(
+                context: context,
+                icon: Icons.workspace_premium_rounded,
+                iconColor: isPremium
+                    ? AppColors.getPrimary(isDark)
+                    : AppColors.getSecondary(isDark),
+                title: isPremium ? 'Premium Features' : 'Upgrade to Premium',
+                subtitle: isPremium
+                    ? 'View all premium benefits'
+                    : 'Unlock all features',
+                onTap: () {
+                  _hapticService.light();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PremiumFeaturesScreen(),
+                    ),
+                  );
+                },
+              ),
+              if (isPremium) ...[
                 _buildDivider(),
                 _buildSettingsTile(
                   context: context,
-                  icon: Icons.star_rounded,
-                  iconColor: AppColors.getSecondary(isDark),
-                  title: 'Upgrade to Premium',
-                  subtitle: 'Unlock all features',
-                  onTap: () {
+                  icon: Icons.manage_accounts_rounded,
+                  title: 'Manage Subscription',
+                  subtitle: 'View and manage your subscription',
+                  onTap: () async {
                     _hapticService.light();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-                    );
+                    try {
+                      await RevenueCatUI.presentCustomerCenter();
+                    } catch (e) {
+                      if (mounted) {
+                        SnackBarUtils.showError(
+                          context,
+                          message: 'Failed to open subscription management',
+                        );
+                      }
+                    }
                   },
                 ),
               ],

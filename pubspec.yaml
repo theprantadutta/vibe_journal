@@ -26,7 +26,6 @@ dependencies:
   just_audio: ^0.10.4
   flutter_sound: ^9.28.0
   fl_chart: ^1.0.0
-  in_app_purchase: ^3.2.3
   cloud_functions: ^6.0.4
   rxdart: ^0.28.0
 
@@ -45,6 +44,8 @@ dependencies:
   google_sign_in: ^7.2.0
   font_awesome_flutter: ^10.7.0
   flutter_dotenv: ^6.0.0
+  purchases_flutter: ^9.9.4
+  purchases_ui_flutter: ^9.9.4
 dev_dependencies:
   flutter_test:
     sdk: flutter

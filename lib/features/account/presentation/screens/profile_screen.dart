@@ -16,7 +16,8 @@ import 'package:vibe_journal/core/services/haptic_service.dart';
 import 'package:vibe_journal/core/services/sound_service.dart';
 import 'package:vibe_journal/core/widgets/animated_card.dart';
 import 'package:vibe_journal/core/widgets/animated_button.dart';
-import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
+import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 import '../../../auth/presentation/screens/auth_screen.dart';
 
@@ -191,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
         final userService = locator<UserService>();
-        userService.clearUser();
+        await userService.clearUser();
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) Navigator.of(context).pop(); // Pop loading dialog
@@ -359,7 +360,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () {
               _hapticService.light();
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const PremiumFeaturesScreen(),
+                ),
               );
             },
             backgroundColor: AppColors.getSecondary(isDark),
@@ -400,6 +403,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
             subtitle: Text(
               "Thank you for supporting VibeJournal.",
               style: TextStyle(color: AppColors.getTextHint(isDark)),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AnimatedButton(
+            onPressed: () async {
+              _hapticService.light();
+              try {
+                await RevenueCatUI.presentCustomerCenter();
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to open subscription management'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            backgroundColor: AppColors.getPrimary(isDark).withValues(alpha: 0.1),
+            foregroundColor: AppColors.getPrimary(isDark),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.manage_accounts_rounded, size: 20),
+                SizedBox(width: AppSpacing.sm),
+                Text("Manage Subscription"),
+              ],
             ),
           ),
         ],
@@ -526,7 +558,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (shouldLogout == true) {
                 _hapticService.success();
                 // Use our new UserService to clear the user's session data
-                locator<UserService>().clearUser();
+                await locator<UserService>().clearUser();
 
                 // Sign out from Firebase Authentication
                 await FirebaseAuth.instance.signOut();

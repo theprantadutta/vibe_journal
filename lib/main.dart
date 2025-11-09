@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'config/theme/app_theme.dart';
 import 'config/theme/theme_provider.dart';
 import 'core/services/haptic_service.dart';
+import 'core/services/revenue_cat_service.dart';
 import 'core/services/service_locator.dart';
 import 'core/services/sound_service.dart';
 import 'features/auth/presentation/widgets/auth_guard.dart';
@@ -29,6 +30,12 @@ Future<void> main() async {
   await HapticService().initialize();
   await SoundService().initialize();
 
+  // Initialize RevenueCat (non-blocking - will complete in background)
+  locator<RevenueCatService>().initialize().catchError((error) {
+    // ignore: avoid_print
+    print('⚠️ RevenueCat initialization failed: $error');
+  });
+
   runApp(const VibeJournalApp());
 }
 
@@ -43,7 +50,7 @@ class _VibeJournalAppState extends State<VibeJournalApp> {
   @override
   void initState() {
     super.initState();
-    // Remove splash screen after first frame to prevent performTraversals warnings
+    // Remove splash screen after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FlutterNativeSplash.remove();
     });
