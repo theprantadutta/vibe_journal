@@ -21,6 +21,7 @@ import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/animated_button.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../domain/models/user_model.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../../../core/services/service_locator.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -159,7 +160,24 @@ class _AuthScreenState extends State<AuthScreen> {
         }
       }
 
-      if (userModel != null) {
+      if (userModel != null && userCredential.user != null) {
+        // Store Firebase token for API requests
+        final authRepository = locator<AuthRepository>();
+
+        // Verify Firebase token with backend and store it
+        final authResponse = await authRepository.verifyFirebaseToken(userCredential.user!);
+
+        if (!authResponse.isSuccess) {
+          if (kDebugMode) {
+            print('⚠️ Backend auth verification failed: ${authResponse.error}');
+          }
+          // Continue with Firebase-only auth as fallback
+        } else {
+          if (kDebugMode) {
+            print('✅ Firebase token stored for API requests');
+          }
+        }
+
         final userService = locator<UserService>();
 
         // Try to fetch user from backend API (preferred)

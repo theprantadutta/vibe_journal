@@ -11,10 +11,11 @@ class AuthRepository {
 
   AuthRepository(this._apiClient);
 
-  /// Verify Firebase ID token with backend and get JWT token
+  /// Verify Firebase ID token with backend and store it for API requests
   ///
-  /// This exchanges Firebase token for backend JWT token
-  /// Returns the JWT token if successful, null otherwise
+  /// This stores the Firebase token directly (backend expects Firebase tokens,
+  /// not JWT tokens like Pinpoint does)
+  /// Returns the Firebase token if successful, null otherwise
   Future<ApiResponse<String>> verifyFirebaseToken(User firebaseUser) async {
     try {
       // Get Firebase ID token
@@ -27,7 +28,10 @@ class AuthRepository {
         );
       }
 
-      // Send to backend for verification
+      // Store Firebase ID token directly (backend verifies Firebase tokens on each request)
+      await ApiInterceptor.setToken(idToken);
+
+      // Send to backend for verification and user sync
       final response = await _apiClient.post(
         ApiEndpoints.authVerify,
         data: {
@@ -36,19 +40,9 @@ class AuthRepository {
       );
 
       if (_apiClient.isSuccessful(response)) {
-        final jwtToken = response.data['access_token'] as String?;
-
-        if (jwtToken != null) {
-          // Store JWT token in secure storage
-          await ApiInterceptor.setToken(jwtToken);
-
-          return ApiResponse.success(jwtToken);
-        } else {
-          return ApiResponse.error(
-            'Invalid response from server',
-            statusCode: response.statusCode,
-          );
-        }
+        // Backend verified the token successfully
+        // User is now synced to backend database
+        return ApiResponse.success(idToken);
       } else {
         final errorMsg = _apiClient.getErrorMessage(response) ??
             'Failed to verify token';
