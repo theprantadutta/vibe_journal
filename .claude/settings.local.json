@@ -3,7 +3,8 @@
     "allow": [
       "Bash(flutter analyze:*)",
       "WebFetch(domain:pub.dev)",
-      "Bash(flutter pub add:*)"
+      "Bash(flutter pub add:*)",
+      "Bash(alembic revision:*)"
     ],
     "deny": [],
     "ask": []

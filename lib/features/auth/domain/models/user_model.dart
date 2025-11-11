@@ -10,7 +10,13 @@ class UserModel {
   final String plan; // e.g., 'free', 'premium'
   final int cloudVibeCount;
   final int maxCloudVibes; // Maximum vibes allowed based on plan
+  final int maxRecordingDurationMinutes; // Maximum recording duration
   final Timestamp createdAt;
+
+  // Subscription fields
+  final bool isPremium;
+  final String? subscriptionType; // monthly, yearly, lifetime
+  final String subscriptionStatus; // free, active, expired, grace_period, canceled
 
   UserModel({
     required this.uid,
@@ -19,7 +25,11 @@ class UserModel {
     required this.plan,
     required this.cloudVibeCount,
     required this.maxCloudVibes,
+    required this.maxRecordingDurationMinutes,
     required this.createdAt,
+    this.isPremium = false,
+    this.subscriptionType,
+    this.subscriptionStatus = 'free',
   });
 
   /// Create UserModel from Firestore document (backward compatibility)
@@ -32,7 +42,11 @@ class UserModel {
       plan: data['plan'] as String? ?? 'free',
       cloudVibeCount: data['cloudVibeCount'] as int? ?? 0,
       maxCloudVibes: data['maxCloudVibes'] as int? ?? 75,
+      maxRecordingDurationMinutes: data['maxRecordingDurationMinutes'] as int? ?? 5,
       createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(),
+      isPremium: (data['plan'] as String?) == 'premium',
+      subscriptionType: data['subscriptionType'] as String?,
+      subscriptionStatus: data['subscriptionStatus'] as String? ?? 'free',
     );
   }
 
@@ -46,9 +60,13 @@ class UserModel {
       plan: json['plan_name'] as String? ?? 'free',
       cloudVibeCount: json['cloud_vibe_count'] as int? ?? 0,
       maxCloudVibes: json['max_cloud_vibes'] as int? ?? 75,
+      maxRecordingDurationMinutes: json['max_recording_duration_minutes'] as int? ?? 5,
       createdAt: createdAt != null
           ? Timestamp.fromDate(DateTime.parse(createdAt))
           : Timestamp.now(),
+      isPremium: json['is_premium'] as bool? ?? false,
+      subscriptionType: json['subscription_type'] as String?,
+      subscriptionStatus: json['subscription_status'] as String? ?? 'free',
     );
   }
 
@@ -61,7 +79,11 @@ class UserModel {
       plan: user.plan,
       cloudVibeCount: user.cloudVibeCount,
       maxCloudVibes: user.maxCloudVibes,
+      maxRecordingDurationMinutes: user.maxRecordingDurationMinutes ?? 5,
       createdAt: Timestamp.fromDate(user.createdAt),
+      isPremium: user.plan == 'premium',
+      subscriptionType: user.subscriptionType,
+      subscriptionStatus: user.subscriptionStatus ?? 'free',
     );
   }
 }

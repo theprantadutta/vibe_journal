@@ -17,7 +17,7 @@ import 'package:vibe_journal/core/services/sound_service.dart';
 import 'package:vibe_journal/core/widgets/animated_card.dart';
 import 'package:vibe_journal/core/widgets/animated_button.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
-import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
+import 'package:vibe_journal/features/premium/presentation/screens/subscription_management_screen.dart';
 
 import '../../../auth/presentation/screens/auth_screen.dart';
 
@@ -407,20 +407,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           AnimatedButton(
-            onPressed: () async {
+            onPressed: () {
               _hapticService.light();
-              try {
-                await RevenueCatUI.presentCustomerCenter();
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Failed to open subscription management'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SubscriptionManagementScreen(),
+                ),
+              );
             },
             backgroundColor: AppColors.getPrimary(isDark).withValues(alpha: 0.1),
             foregroundColor: AppColors.getPrimary(isDark),

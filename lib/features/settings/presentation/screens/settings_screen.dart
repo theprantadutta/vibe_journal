@@ -18,9 +18,9 @@ import '../../../account/presentation/screens/profile_screen.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../legal/presentation/privacy_policy_content.dart';
 import '../../../legal/presentation/terms_and_conditions_content.dart';
+import '../../../premium/presentation/screens/subscription_management_screen.dart';
 import '../../../premium/presentation/screens/premium_features_screen.dart';
 import 'notification_settings_screen.dart';
-import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 const String kBiometricLockEnabled = 'biometric_lock_enabled';
 
@@ -160,18 +160,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.manage_accounts_rounded,
                   title: 'Manage Subscription',
                   subtitle: 'View and manage your subscription',
-                  onTap: () async {
+                  onTap: () {
                     _hapticService.light();
-                    try {
-                      await RevenueCatUI.presentCustomerCenter();
-                    } catch (e) {
-                      if (mounted) {
-                        SnackBarUtils.showError(
-                          context,
-                          message: 'Failed to open subscription management',
-                        );
-                      }
-                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SubscriptionManagementScreen(),
+                      ),
+                    );
                   },
                 ),
               ],

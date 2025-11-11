@@ -16,7 +16,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
@@ -26,10 +26,11 @@ class AppDatabase extends _$AppDatabase {
       },
       onUpgrade: (Migrator m, int from, int to) async {
         // Handle database migrations here when schema changes
-        // Example:
-        // if (from < 2) {
-        //   await m.addColumn(users, users.newColumn);
-        // }
+        if (from < 2) {
+          // Add subscription fields in schema version 2
+          await m.addColumn(users, users.subscriptionType);
+          await m.addColumn(users, users.subscriptionStatus);
+        }
       },
     );
   }

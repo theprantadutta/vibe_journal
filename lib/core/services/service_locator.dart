@@ -1,9 +1,10 @@
 import 'package:get_it/get_it.dart';
 import 'user_service.dart';
 import 'auth_service.dart';
-import 'revenue_cat_service.dart';
+import 'purchase_service.dart';
 import '../database/app_database.dart';
 import '../api/api_client.dart';
+import '../api/subscription_api_client.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
 import '../../features/auth/data/repositories/user_repository.dart';
 import '../../features/journal/data/repositories/vibe_repository.dart';
@@ -32,13 +33,18 @@ void setupLocator() {
     AiRepository(locator<ApiClient>()),
   );
 
-  // Register RevenueCatService FIRST (UserService depends on it)
-  locator.registerSingleton<RevenueCatService>(RevenueCatService());
+  // Register Subscription API Client
+  locator.registerSingleton<SubscriptionApiClient>(
+    SubscriptionApiClient(locator<ApiClient>().dio),
+  );
+
+  // Register PurchaseService (for Google Play in-app purchases)
+  locator.registerSingleton<PurchaseService>(PurchaseService());
 
   // Register AuthService for Google Sign In (depends on AuthRepository)
   locator.registerSingleton<AuthService>(AuthService());
 
-  // Register UserService (depends on UserRepository and RevenueCatService)
+  // Register UserService (depends on UserRepository)
   locator.registerSingleton<UserService>(UserService());
 }
 

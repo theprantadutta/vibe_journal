@@ -1,20 +1,16 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../features/auth/domain/models/user_model.dart';
 import '../../features/auth/data/repositories/user_repository.dart';
 import '../../features/premium/domain/models/plan_details_model.dart';
 import 'service_locator.dart';
-import 'revenue_cat_service.dart';
 
 class UserService {
   UserModel? _currentUser;
-  PlanDetailsModel? _currentPlanDetails; // New: To hold plan limits
-  final _revenueCatService = locator<RevenueCatService>();
+  PlanDetailsModel? _currentPlanDetails;
   late final UserRepository _userRepository;
 
   UserService() {
-    // Get user repository from service locator
     _userRepository = locator<UserRepository>();
   }
 
@@ -22,26 +18,19 @@ class UserService {
   UserModel get currentUser => _currentUser!;
   bool get isUserLoggedIn => _currentUser != null;
 
-  // Getters for plan details (with safe fallbacks)
-  // Check RevenueCat first, then fall back to Firestore plan
+  // Premium status is now determined by backend API response
   bool get isPremium {
-    // Try to get premium status from RevenueCat if available
-    if (_revenueCatService.customerInfo != null) {
-      return _revenueCatService.isPremium();
-    }
-    // Fallback to Firestore plan
-    return _currentUser?.plan == 'premium';
+    return _currentUser?.isPremium ?? false;
   }
 
   int get maxCloudVibes => _currentPlanDetails?.maxCloudVibes ?? 75;
   int get maxRecordingDurationMinutes =>
       _currentPlanDetails?.maxRecordingDurationMinutes ?? 5;
 
-  /// Fetch user profile from backend API (preferred) or Firestore (fallback)
+  /// Fetch user profile from backend API
   /// This is the main method to refresh user data
   Future<bool> fetchAndUpdateUser() async {
     try {
-      // Try to fetch from backend API first
       final response = await _userRepository.fetchCurrentUser();
 
       if (response.isSuccess && response.data != null) {
@@ -61,8 +50,12 @@ class UserService {
     }
   }
 
+  /// Convenience method to refresh user data
+  Future<void> refreshUser() async {
+    await fetchAndUpdateUser();
+  }
+
   /// Update user in memory and perform related operations
-  /// This method now works with both Firestore and backend API data
   Future<void> updateUser(UserModel user) async {
     _currentUser = user;
 
@@ -75,42 +68,20 @@ class UserService {
       );
     }
 
-    // Log in to RevenueCat with Firebase UID
-    try {
-      await _revenueCatService.loginUser(user.uid);
-
-      // Sync premium status from RevenueCat to Firestore
-      await _revenueCatService.syncPremiumStatusWithFirestore(user.uid);
-
-      if (kDebugMode) {
-        print("✅ RevenueCat user logged in and synced");
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print("🚨 Error logging in to RevenueCat: $e");
-      }
-      // Continue even if RevenueCat fails - we can fall back to plan from backend
-    }
-
-    // After getting the user, fetch their plan details from Firestore (backward compatibility)
-    // TODO: Eventually this should come from backend API
-    await _fetchPlanDetails(user.plan);
+    // Update plan details from user data
+    _updatePlanDetailsFromUser(user);
   }
 
-  Future<void> _fetchPlanDetails(String planId) async {
-    try {
-      final planDoc = await FirebaseFirestore.instance
-          .collection('plans')
-          .doc(planId)
-          .get();
-      if (planDoc.exists) {
-        _currentPlanDetails = PlanDetailsModel.fromFirestore(planDoc);
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error fetching plan details: $e");
-      }
-      // Could use a default fallback plan here if fetching fails
+  void _updatePlanDetailsFromUser(UserModel user) {
+    // Create plan details from user data
+    _currentPlanDetails = PlanDetailsModel(
+      planName: user.plan,
+      maxCloudVibes: user.maxCloudVibes,
+      maxRecordingDurationMinutes: user.maxRecordingDurationMinutes,
+    );
+
+    if (kDebugMode) {
+      print("✅ Plan details updated: ${user.plan} (${user.maxCloudVibes} vibes max)");
     }
   }
 
@@ -130,18 +101,6 @@ class UserService {
     } catch (e) {
       if (kDebugMode) {
         print("🚨 Error clearing user cache: $e");
-      }
-    }
-
-    // Log out from RevenueCat
-    try {
-      await _revenueCatService.logoutUser();
-      if (kDebugMode) {
-        print("✅ RevenueCat user logged out");
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print("🚨 Error logging out from RevenueCat: $e");
       }
     }
 

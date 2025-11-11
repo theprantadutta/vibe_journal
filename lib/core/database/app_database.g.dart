@@ -94,6 +94,29 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         requiredDuringInsert: false,
         defaultValue: const Constant(5),
       );
+  static const VerificationMeta _subscriptionTypeMeta = const VerificationMeta(
+    'subscriptionType',
+  );
+  @override
+  late final GeneratedColumn<String> subscriptionType = GeneratedColumn<String>(
+    'subscription_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _subscriptionStatusMeta =
+      const VerificationMeta('subscriptionStatus');
+  @override
+  late final GeneratedColumn<String> subscriptionStatus =
+      GeneratedColumn<String>(
+        'subscription_status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('free'),
+      );
   static const VerificationMeta _notificationPreferencesMeta =
       const VerificationMeta('notificationPreferences');
   @override
@@ -138,6 +161,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     cloudVibeCount,
     maxCloudVibes,
     maxRecordingDurationMinutes,
+    subscriptionType,
+    subscriptionStatus,
     notificationPreferences,
     createdAt,
     lastSyncedAt,
@@ -213,6 +238,24 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         ),
       );
     }
+    if (data.containsKey('subscription_type')) {
+      context.handle(
+        _subscriptionTypeMeta,
+        subscriptionType.isAcceptableOrUnknown(
+          data['subscription_type']!,
+          _subscriptionTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('subscription_status')) {
+      context.handle(
+        _subscriptionStatusMeta,
+        subscriptionStatus.isAcceptableOrUnknown(
+          data['subscription_status']!,
+          _subscriptionStatusMeta,
+        ),
+      );
+    }
     if (data.containsKey('notification_preferences')) {
       context.handle(
         _notificationPreferencesMeta,
@@ -280,6 +323,14 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.int,
         data['${effectivePrefix}max_recording_duration_minutes'],
       )!,
+      subscriptionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subscription_type'],
+      ),
+      subscriptionStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subscription_status'],
+      )!,
       notificationPreferences: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notification_preferences'],
@@ -310,6 +361,8 @@ class User extends DataClass implements Insertable<User> {
   final int cloudVibeCount;
   final int maxCloudVibes;
   final int maxRecordingDurationMinutes;
+  final String? subscriptionType;
+  final String subscriptionStatus;
   final String notificationPreferences;
   final DateTime createdAt;
   final DateTime? lastSyncedAt;
@@ -322,6 +375,8 @@ class User extends DataClass implements Insertable<User> {
     required this.cloudVibeCount,
     required this.maxCloudVibes,
     required this.maxRecordingDurationMinutes,
+    this.subscriptionType,
+    required this.subscriptionStatus,
     required this.notificationPreferences,
     required this.createdAt,
     this.lastSyncedAt,
@@ -345,6 +400,10 @@ class User extends DataClass implements Insertable<User> {
     map['max_recording_duration_minutes'] = Variable<int>(
       maxRecordingDurationMinutes,
     );
+    if (!nullToAbsent || subscriptionType != null) {
+      map['subscription_type'] = Variable<String>(subscriptionType);
+    }
+    map['subscription_status'] = Variable<String>(subscriptionStatus);
     map['notification_preferences'] = Variable<String>(notificationPreferences);
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || lastSyncedAt != null) {
@@ -369,6 +428,10 @@ class User extends DataClass implements Insertable<User> {
       cloudVibeCount: Value(cloudVibeCount),
       maxCloudVibes: Value(maxCloudVibes),
       maxRecordingDurationMinutes: Value(maxRecordingDurationMinutes),
+      subscriptionType: subscriptionType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subscriptionType),
+      subscriptionStatus: Value(subscriptionStatus),
       notificationPreferences: Value(notificationPreferences),
       createdAt: Value(createdAt),
       lastSyncedAt: lastSyncedAt == null && nullToAbsent
@@ -393,6 +456,10 @@ class User extends DataClass implements Insertable<User> {
       maxRecordingDurationMinutes: serializer.fromJson<int>(
         json['maxRecordingDurationMinutes'],
       ),
+      subscriptionType: serializer.fromJson<String?>(json['subscriptionType']),
+      subscriptionStatus: serializer.fromJson<String>(
+        json['subscriptionStatus'],
+      ),
       notificationPreferences: serializer.fromJson<String>(
         json['notificationPreferences'],
       ),
@@ -414,6 +481,8 @@ class User extends DataClass implements Insertable<User> {
       'maxRecordingDurationMinutes': serializer.toJson<int>(
         maxRecordingDurationMinutes,
       ),
+      'subscriptionType': serializer.toJson<String?>(subscriptionType),
+      'subscriptionStatus': serializer.toJson<String>(subscriptionStatus),
       'notificationPreferences': serializer.toJson<String>(
         notificationPreferences,
       ),
@@ -431,6 +500,8 @@ class User extends DataClass implements Insertable<User> {
     int? cloudVibeCount,
     int? maxCloudVibes,
     int? maxRecordingDurationMinutes,
+    Value<String?> subscriptionType = const Value.absent(),
+    String? subscriptionStatus,
     String? notificationPreferences,
     DateTime? createdAt,
     Value<DateTime?> lastSyncedAt = const Value.absent(),
@@ -444,6 +515,10 @@ class User extends DataClass implements Insertable<User> {
     maxCloudVibes: maxCloudVibes ?? this.maxCloudVibes,
     maxRecordingDurationMinutes:
         maxRecordingDurationMinutes ?? this.maxRecordingDurationMinutes,
+    subscriptionType: subscriptionType.present
+        ? subscriptionType.value
+        : this.subscriptionType,
+    subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
     notificationPreferences:
         notificationPreferences ?? this.notificationPreferences,
     createdAt: createdAt ?? this.createdAt,
@@ -465,6 +540,12 @@ class User extends DataClass implements Insertable<User> {
       maxRecordingDurationMinutes: data.maxRecordingDurationMinutes.present
           ? data.maxRecordingDurationMinutes.value
           : this.maxRecordingDurationMinutes,
+      subscriptionType: data.subscriptionType.present
+          ? data.subscriptionType.value
+          : this.subscriptionType,
+      subscriptionStatus: data.subscriptionStatus.present
+          ? data.subscriptionStatus.value
+          : this.subscriptionStatus,
       notificationPreferences: data.notificationPreferences.present
           ? data.notificationPreferences.value
           : this.notificationPreferences,
@@ -486,6 +567,8 @@ class User extends DataClass implements Insertable<User> {
           ..write('cloudVibeCount: $cloudVibeCount, ')
           ..write('maxCloudVibes: $maxCloudVibes, ')
           ..write('maxRecordingDurationMinutes: $maxRecordingDurationMinutes, ')
+          ..write('subscriptionType: $subscriptionType, ')
+          ..write('subscriptionStatus: $subscriptionStatus, ')
           ..write('notificationPreferences: $notificationPreferences, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastSyncedAt: $lastSyncedAt')
@@ -503,6 +586,8 @@ class User extends DataClass implements Insertable<User> {
     cloudVibeCount,
     maxCloudVibes,
     maxRecordingDurationMinutes,
+    subscriptionType,
+    subscriptionStatus,
     notificationPreferences,
     createdAt,
     lastSyncedAt,
@@ -520,6 +605,8 @@ class User extends DataClass implements Insertable<User> {
           other.maxCloudVibes == this.maxCloudVibes &&
           other.maxRecordingDurationMinutes ==
               this.maxRecordingDurationMinutes &&
+          other.subscriptionType == this.subscriptionType &&
+          other.subscriptionStatus == this.subscriptionStatus &&
           other.notificationPreferences == this.notificationPreferences &&
           other.createdAt == this.createdAt &&
           other.lastSyncedAt == this.lastSyncedAt);
@@ -534,6 +621,8 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<int> cloudVibeCount;
   final Value<int> maxCloudVibes;
   final Value<int> maxRecordingDurationMinutes;
+  final Value<String?> subscriptionType;
+  final Value<String> subscriptionStatus;
   final Value<String> notificationPreferences;
   final Value<DateTime> createdAt;
   final Value<DateTime?> lastSyncedAt;
@@ -547,6 +636,8 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.cloudVibeCount = const Value.absent(),
     this.maxCloudVibes = const Value.absent(),
     this.maxRecordingDurationMinutes = const Value.absent(),
+    this.subscriptionType = const Value.absent(),
+    this.subscriptionStatus = const Value.absent(),
     this.notificationPreferences = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.lastSyncedAt = const Value.absent(),
@@ -561,6 +652,8 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.cloudVibeCount = const Value.absent(),
     this.maxCloudVibes = const Value.absent(),
     this.maxRecordingDurationMinutes = const Value.absent(),
+    this.subscriptionType = const Value.absent(),
+    this.subscriptionStatus = const Value.absent(),
     this.notificationPreferences = const Value.absent(),
     required DateTime createdAt,
     this.lastSyncedAt = const Value.absent(),
@@ -576,6 +669,8 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<int>? cloudVibeCount,
     Expression<int>? maxCloudVibes,
     Expression<int>? maxRecordingDurationMinutes,
+    Expression<String>? subscriptionType,
+    Expression<String>? subscriptionStatus,
     Expression<String>? notificationPreferences,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? lastSyncedAt,
@@ -591,6 +686,8 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (maxCloudVibes != null) 'max_cloud_vibes': maxCloudVibes,
       if (maxRecordingDurationMinutes != null)
         'max_recording_duration_minutes': maxRecordingDurationMinutes,
+      if (subscriptionType != null) 'subscription_type': subscriptionType,
+      if (subscriptionStatus != null) 'subscription_status': subscriptionStatus,
       if (notificationPreferences != null)
         'notification_preferences': notificationPreferences,
       if (createdAt != null) 'created_at': createdAt,
@@ -608,6 +705,8 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<int>? cloudVibeCount,
     Value<int>? maxCloudVibes,
     Value<int>? maxRecordingDurationMinutes,
+    Value<String?>? subscriptionType,
+    Value<String>? subscriptionStatus,
     Value<String>? notificationPreferences,
     Value<DateTime>? createdAt,
     Value<DateTime?>? lastSyncedAt,
@@ -623,6 +722,8 @@ class UsersCompanion extends UpdateCompanion<User> {
       maxCloudVibes: maxCloudVibes ?? this.maxCloudVibes,
       maxRecordingDurationMinutes:
           maxRecordingDurationMinutes ?? this.maxRecordingDurationMinutes,
+      subscriptionType: subscriptionType ?? this.subscriptionType,
+      subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
       notificationPreferences:
           notificationPreferences ?? this.notificationPreferences,
       createdAt: createdAt ?? this.createdAt,
@@ -660,6 +761,12 @@ class UsersCompanion extends UpdateCompanion<User> {
         maxRecordingDurationMinutes.value,
       );
     }
+    if (subscriptionType.present) {
+      map['subscription_type'] = Variable<String>(subscriptionType.value);
+    }
+    if (subscriptionStatus.present) {
+      map['subscription_status'] = Variable<String>(subscriptionStatus.value);
+    }
     if (notificationPreferences.present) {
       map['notification_preferences'] = Variable<String>(
         notificationPreferences.value,
@@ -688,6 +795,8 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('cloudVibeCount: $cloudVibeCount, ')
           ..write('maxCloudVibes: $maxCloudVibes, ')
           ..write('maxRecordingDurationMinutes: $maxRecordingDurationMinutes, ')
+          ..write('subscriptionType: $subscriptionType, ')
+          ..write('subscriptionStatus: $subscriptionStatus, ')
           ..write('notificationPreferences: $notificationPreferences, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastSyncedAt: $lastSyncedAt, ')
@@ -2320,6 +2429,8 @@ typedef $$UsersTableCreateCompanionBuilder =
       Value<int> cloudVibeCount,
       Value<int> maxCloudVibes,
       Value<int> maxRecordingDurationMinutes,
+      Value<String?> subscriptionType,
+      Value<String> subscriptionStatus,
       Value<String> notificationPreferences,
       required DateTime createdAt,
       Value<DateTime?> lastSyncedAt,
@@ -2335,6 +2446,8 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<int> cloudVibeCount,
       Value<int> maxCloudVibes,
       Value<int> maxRecordingDurationMinutes,
+      Value<String?> subscriptionType,
+      Value<String> subscriptionStatus,
       Value<String> notificationPreferences,
       Value<DateTime> createdAt,
       Value<DateTime?> lastSyncedAt,
@@ -2386,6 +2499,16 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<int> get maxRecordingDurationMinutes => $composableBuilder(
     column: $table.maxRecordingDurationMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subscriptionType => $composableBuilder(
+    column: $table.subscriptionType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2454,6 +2577,16 @@ class $$UsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get subscriptionType => $composableBuilder(
+    column: $table.subscriptionType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notificationPreferences => $composableBuilder(
     column: $table.notificationPreferences,
     builder: (column) => ColumnOrderings(column),
@@ -2509,6 +2642,16 @@ class $$UsersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get subscriptionType => $composableBuilder(
+    column: $table.subscriptionType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get notificationPreferences => $composableBuilder(
     column: $table.notificationPreferences,
     builder: (column) => column,
@@ -2559,6 +2702,8 @@ class $$UsersTableTableManager
                 Value<int> cloudVibeCount = const Value.absent(),
                 Value<int> maxCloudVibes = const Value.absent(),
                 Value<int> maxRecordingDurationMinutes = const Value.absent(),
+                Value<String?> subscriptionType = const Value.absent(),
+                Value<String> subscriptionStatus = const Value.absent(),
                 Value<String> notificationPreferences = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> lastSyncedAt = const Value.absent(),
@@ -2572,6 +2717,8 @@ class $$UsersTableTableManager
                 cloudVibeCount: cloudVibeCount,
                 maxCloudVibes: maxCloudVibes,
                 maxRecordingDurationMinutes: maxRecordingDurationMinutes,
+                subscriptionType: subscriptionType,
+                subscriptionStatus: subscriptionStatus,
                 notificationPreferences: notificationPreferences,
                 createdAt: createdAt,
                 lastSyncedAt: lastSyncedAt,
@@ -2587,6 +2734,8 @@ class $$UsersTableTableManager
                 Value<int> cloudVibeCount = const Value.absent(),
                 Value<int> maxCloudVibes = const Value.absent(),
                 Value<int> maxRecordingDurationMinutes = const Value.absent(),
+                Value<String?> subscriptionType = const Value.absent(),
+                Value<String> subscriptionStatus = const Value.absent(),
                 Value<String> notificationPreferences = const Value.absent(),
                 required DateTime createdAt,
                 Value<DateTime?> lastSyncedAt = const Value.absent(),
@@ -2600,6 +2749,8 @@ class $$UsersTableTableManager
                 cloudVibeCount: cloudVibeCount,
                 maxCloudVibes: maxCloudVibes,
                 maxRecordingDurationMinutes: maxRecordingDurationMinutes,
+                subscriptionType: subscriptionType,
+                subscriptionStatus: subscriptionStatus,
                 notificationPreferences: notificationPreferences,
                 createdAt: createdAt,
                 lastSyncedAt: lastSyncedAt,
