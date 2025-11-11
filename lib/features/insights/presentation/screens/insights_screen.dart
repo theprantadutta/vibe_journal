@@ -422,8 +422,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
   Widget _buildPieChartCard(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
-    final totalCount = _moodCounts.values.reduce((a, b) => a + b);
-    if (totalCount == 0) {
+
+    // Check if empty before calling reduce to avoid crash
+    if (_moodCounts.isEmpty || _moodCounts.values.every((count) => count == 0)) {
       return AnimatedCard(
         color: AppColors.getSurface(isDark),
         padding: EdgeInsets.all(AppSpacing.sectionSpacing),
@@ -440,6 +441,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
           .fadeIn(duration: AppAnimations.fast, delay: 100.ms)
           .slideY(begin: 0.2, end: 0);
     }
+
+    final totalCount = _moodCounts.values.reduce((a, b) => a + b);
 
     return AnimatedCard(
       color: AppColors.getSurface(isDark),
