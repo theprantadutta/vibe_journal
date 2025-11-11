@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/auth/domain/models/user_model.dart';
 import '../../features/auth/data/repositories/user_repository.dart';
+import '../../features/journal/data/repositories/vibe_repository.dart';
 import '../../features/premium/domain/models/plan_details_model.dart';
 import 'service_locator.dart';
 
@@ -9,9 +10,11 @@ class UserService {
   UserModel? _currentUser;
   PlanDetailsModel? _currentPlanDetails;
   late final UserRepository _userRepository;
+  late final VibeRepository _vibeRepository;
 
   UserService() {
     _userRepository = locator<UserRepository>();
+    _vibeRepository = locator<VibeRepository>();
   }
 
   // Getters for user data
@@ -92,7 +95,7 @@ class UserService {
       locator.unregister<UserModel>();
     }
 
-    // Clear cached user data from local database
+    // Clear all cached data from local database
     try {
       await _userRepository.clearCache();
       if (kDebugMode) {
@@ -101,6 +104,18 @@ class UserService {
     } catch (e) {
       if (kDebugMode) {
         print("🚨 Error clearing user cache: $e");
+      }
+    }
+
+    // Clear vibe cache to prevent data leakage between user accounts
+    try {
+      await _vibeRepository.clearCache();
+      if (kDebugMode) {
+        print("✅ Local vibe cache cleared");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("🚨 Error clearing vibe cache: $e");
       }
     }
 
