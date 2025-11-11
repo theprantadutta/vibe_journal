@@ -28,7 +28,10 @@ class ApiEndpoints {
 
   // Notifications
   static const String notificationsTest = '/notifications/test/';
-  static const String notificationsTriggerDaily = '/notifications/trigger-daily-reminders/';
-  static const String notificationsTriggerStreak = '/notifications/trigger-streak-reminders/';
-  static const String notificationsSchedulerStatus = '/notifications/scheduler-status/';
+  static const String notificationsTriggerDaily =
+      '/notifications/trigger-daily-reminders/';
+  static const String notificationsTriggerStreak =
+      '/notifications/trigger-streak-reminders/';
+  static const String notificationsSchedulerStatus =
+      '/notifications/scheduler-status/';
 }

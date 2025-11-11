@@ -76,10 +76,23 @@ class AuthGuard extends StatelessWidget {
               );
             }
             if (snapshot.hasData && snapshot.data != null) {
-              // User is logged in - ensure Firebase token is stored
-              _ensureTokenStored(snapshot.data!);
-              // Wrap the MainAppLayout with our gatekeeper
-              return AppLifecycleObserver(child: const MainAppLayout());
+              // User is logged in - ensure Firebase token is stored before showing app
+              return FutureBuilder<void>(
+                future: _ensureTokenStored(snapshot.data!),
+                builder: (context, tokenSnapshot) {
+                  if (tokenSnapshot.connectionState == ConnectionState.waiting) {
+                    // Show loading while storing token
+                    return Scaffold(
+                      backgroundColor: AppColors.getBackground(true),
+                      body: Center(
+                        child: CircularProgressIndicator(color: AppColors.getSecondary(true)),
+                      ),
+                    );
+                  }
+                  // Token is stored, show the main app
+                  return AppLifecycleObserver(child: const MainAppLayout());
+                },
+              );
             }
             // User is not logged in
             return const AuthScreen();
