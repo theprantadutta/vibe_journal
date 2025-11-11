@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'api_config.dart';
 import 'api_response.dart';
 
@@ -86,12 +87,27 @@ class ApiInterceptor extends Interceptor {
 
     if (ApiConfig.enableLogging) {
       // ignore: avoid_print
-      print('🔐 Unauthorized: Clearing tokens');
+      print('🔐 Unauthorized: Logging out user');
     }
 
     // Clear stored tokens
     await _storage.delete(key: _jwtTokenKey);
     await _storage.delete(key: _refreshTokenKey);
+
+    // Sign out from Firebase - this will trigger AuthGuard's authStateChanges
+    // and automatically navigate to login screen
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (ApiConfig.enableLogging) {
+        // ignore: avoid_print
+        print('✅ User signed out successfully');
+      }
+    } catch (e) {
+      if (ApiConfig.enableLogging) {
+        // ignore: avoid_print
+        print('⚠️ Error signing out: $e');
+      }
+    }
 
     // Create unauthorized error
     final apiError = ApiError(
