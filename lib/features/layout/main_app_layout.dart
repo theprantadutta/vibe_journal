@@ -249,12 +249,6 @@ class _MainAppLayoutState extends State<MainAppLayout>
               horizontal: AppSpacing.sm,
               vertical: AppSpacing.sm,
             ),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.getPrimary(isDark).withValues(alpha: 0.1)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
