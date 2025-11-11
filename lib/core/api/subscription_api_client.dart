@@ -16,7 +16,7 @@ class SubscriptionApiClient {
   }) async {
     try {
       final response = await _dio.post(
-        '/subscriptions/verify-purchase/',
+        '/subscriptions/verify-purchase',
         data: {
           'product_id': productId,
           'purchase_token': purchaseToken,
@@ -34,7 +34,7 @@ class SubscriptionApiClient {
   /// Get current subscription status
   Future<SubscriptionStatus> getSubscriptionStatus() async {
     try {
-      final response = await _dio.get('/subscriptions/status/');
+      final response = await _dio.get('/subscriptions/status');
       return SubscriptionStatus.fromJson(response.data);
     } on DioException catch (e) {
       debugPrint('❌ Error getting subscription status: ${e.message}');
@@ -45,7 +45,7 @@ class SubscriptionApiClient {
   /// Get purchase history
   Future<List<PurchaseHistoryItem>> getPurchaseHistory() async {
     try {
-      final response = await _dio.get('/subscriptions/history/');
+      final response = await _dio.get('/subscriptions/history');
       final purchases = response.data['purchases'] as List;
       return purchases.map((p) => PurchaseHistoryItem.fromJson(p)).toList();
     } on DioException catch (e) {
@@ -57,7 +57,7 @@ class SubscriptionApiClient {
   /// Cancel subscription
   Future<Map<String, dynamic>> cancelSubscription() async {
     try {
-      final response = await _dio.post('/subscriptions/cancel/');
+      final response = await _dio.post('/subscriptions/cancel');
       return response.data;
     } on DioException catch (e) {
       debugPrint('❌ Error canceling subscription: ${e.message}');
@@ -68,7 +68,7 @@ class SubscriptionApiClient {
   /// Restore purchases
   Future<Map<String, dynamic>> restorePurchases() async {
     try {
-      final response = await _dio.post('/subscriptions/restore/');
+      final response = await _dio.post('/subscriptions/restore');
       return response.data;
     } on DioException catch (e) {
       debugPrint('❌ Error restoring purchases: ${e.message}');
