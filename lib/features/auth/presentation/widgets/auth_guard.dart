@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/widgets/app_lifecycle_observer.dart';
+import '../../../../core/services/service_locator.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../screens/auth_screen.dart';
 import '../../../layout/main_app_layout.dart';
 import '../../../onboarding/presentation/screens/onboarding_screen.dart';
@@ -13,6 +15,29 @@ class AuthGuard extends StatelessWidget {
   Future<bool> _hasCompletedOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('onboarding_completed') ?? false;
+  }
+
+  /// Ensure Firebase token is stored for API requests
+  /// This is called when user is already authenticated (e.g., app restart)
+  Future<void> _ensureTokenStored(User firebaseUser) async {
+    try {
+      final authRepository = locator<AuthRepository>();
+
+      // Check if token already exists
+      final hasToken = await authRepository.hasValidToken();
+      if (hasToken) {
+        debugPrint('✅ Token already stored');
+        return;
+      }
+
+      // Store Firebase token
+      debugPrint('📝 Storing Firebase token for authenticated user');
+      await authRepository.verifyFirebaseToken(firebaseUser);
+      debugPrint('✅ Firebase token stored successfully');
+    } catch (e) {
+      debugPrint('⚠️ Failed to store Firebase token: $e');
+      // Don't block the UI, just log the error
+    }
   }
 
   @override
@@ -51,7 +76,9 @@ class AuthGuard extends StatelessWidget {
               );
             }
             if (snapshot.hasData && snapshot.data != null) {
-              // User is logged in, wrap the MainAppLayout with our gatekeeper
+              // User is logged in - ensure Firebase token is stored
+              _ensureTokenStored(snapshot.data!);
+              // Wrap the MainAppLayout with our gatekeeper
               return AppLifecycleObserver(child: const MainAppLayout());
             }
             // User is not logged in
