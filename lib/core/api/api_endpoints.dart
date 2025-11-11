@@ -7,7 +7,7 @@ class ApiEndpoints {
   static const String health = '/health';
 
   // Authentication
-  static const String authVerify = '/auth/verify/';
+  static const String authVerify = '/auth/verify';
 
   // Users
   static const String usersMe = '/users/me/';

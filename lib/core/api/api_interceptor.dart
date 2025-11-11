@@ -14,7 +14,7 @@ class ApiInterceptor extends Interceptor {
   static const String _refreshTokenKey = 'refresh_token';
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     if (ApiConfig.enableLogging) {
       // ignore: avoid_print
       print('🌐 API Request: ${options.method} ${options.path}');
@@ -28,6 +28,9 @@ class ApiInterceptor extends Interceptor {
         // ignore: avoid_print
         print('🔑 Token injected: Bearer ${token.substring(0, 20)}...');
       }
+    } else if (ApiConfig.enableLogging) {
+      // ignore: avoid_print
+      print('⚠️ No token found in storage');
     }
 
     return handler.next(options);
