@@ -1,12 +1,17 @@
 // lib/features/layout/main_app_layout.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
 import 'package:vibe_journal/config/theme/app_spacing.dart';
 import 'package:vibe_journal/config/theme/app_animations.dart';
 import 'package:vibe_journal/core/services/haptic_service.dart';
+import 'package:vibe_journal/core/services/restore_service.dart';
 import 'package:vibe_journal/core/services/sound_service.dart';
+import 'package:vibe_journal/core/services/user_service.dart';
+import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/core/widgets/page_transitions.dart';
+import 'package:vibe_journal/core/widgets/restore_vibes_dialog.dart';
 import 'package:vibe_journal/features/account/presentation/screens/profile_screen.dart';
 import 'package:vibe_journal/features/settings/presentation/screens/settings_screen.dart';
 import '../journal/presentation/screens/journal_screen.dart';
@@ -15,7 +20,12 @@ import '../insights/presentation/screens/insights_screen.dart';
 import '../ai_assistant/presentation/screens/ai_assistant_screen.dart';
 
 class MainAppLayout extends StatefulWidget {
-  const MainAppLayout({super.key});
+  final bool checkForRestore;
+
+  const MainAppLayout({
+    super.key,
+    this.checkForRestore = false,
+  });
 
   @override
   State<MainAppLayout> createState() => _MainAppLayoutState();
@@ -26,6 +36,8 @@ class _MainAppLayoutState extends State<MainAppLayout>
   int _currentIndex = 0;
   final _hapticService = HapticService();
   final _soundService = SoundService();
+  final _userService = locator<UserService>();
+  final _restoreService = locator<RestoreService>();
 
   // Animation controller for page transitions
   late AnimationController _transitionController;
@@ -74,6 +86,40 @@ class _MainAppLayoutState extends State<MainAppLayout>
 
     // Start with page visible
     _transitionController.value = 1.0;
+
+    // Check if we should restore vibes from cloud
+    if (widget.checkForRestore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkAndRestoreVibes();
+      });
+    }
+  }
+
+  /// Check if user needs vibe restoration and show dialog
+  Future<void> _checkAndRestoreVibes() async {
+    if (!_userService.isPremium || !_userService.isUserLoggedIn) {
+      return; // Only for premium users
+    }
+
+    final userId = _userService.currentUser.id;
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'first_sync_complete_$userId';
+
+    // Check if first sync is already complete
+    final syncComplete = prefs.getBool(key) ?? false;
+    if (syncComplete) {
+      return; // Already restored
+    }
+
+    // Show restore dialog
+    if (mounted) {
+      final progressStream = _restoreService.restoreAllVibes();
+
+      await RestoreVibesDialog.show(context, progressStream);
+
+      // Mark sync as complete
+      await prefs.setBool(key, true);
+    }
   }
 
   @override

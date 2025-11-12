@@ -89,8 +89,10 @@ class AuthGuard extends StatelessWidget {
                       ),
                     );
                   }
-                  // Token is stored, show the main app
-                  return AppLifecycleObserver(child: const MainAppLayout());
+                  // Token is stored, show the main app with restore check
+                  return AppLifecycleObserver(
+                    child: const MainAppLayout(checkForRestore: true),
+                  );
                 },
               );
             }
