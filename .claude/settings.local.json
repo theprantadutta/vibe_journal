@@ -4,7 +4,11 @@
       "Bash(flutter analyze:*)",
       "WebFetch(domain:pub.dev)",
       "Bash(flutter pub add:*)",
-      "Bash(alembic revision:*)"
+      "Bash(alembic revision:*)",
+      "Bash(git add:*)",
+      "Bash(./venv/Scripts/python.exe:*)",
+      "Bash(git commit:*)",
+      "Bash(dart run build_runner:*)"
     ],
     "deny": [],
     "ask": []
