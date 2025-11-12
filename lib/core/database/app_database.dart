@@ -16,7 +16,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -30,6 +30,14 @@ class AppDatabase extends _$AppDatabase {
           // Add subscription fields in schema version 2
           await m.addColumn(users, users.subscriptionType);
           await m.addColumn(users, users.subscriptionStatus);
+        }
+        if (from < 3) {
+          // Add sync status fields in schema version 3
+          await m.addColumn(vibes, vibes.isSynced);
+          await m.addColumn(vibes, vibes.syncRetryCount);
+          await m.addColumn(vibes, vibes.lastSyncAttempt);
+          await m.addColumn(vibes, vibes.localAudioPath);
+          await m.addColumn(vibes, vibes.isAudioDownloaded);
         }
       },
     );

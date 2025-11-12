@@ -31,6 +31,15 @@ class Vibes extends Table {
   BoolColumn get isPendingUpload => boolean().withDefault(const Constant(false))();
   BoolColumn get isPendingDelete => boolean().withDefault(const Constant(false))();
 
+  // Sync status (NEW in schema v3)
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+  IntColumn get syncRetryCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastSyncAttempt => dateTime().nullable()();
+
+  // Local audio cache (NEW in schema v3)
+  TextColumn get localAudioPath => text().nullable()();
+  BoolColumn get isAudioDownloaded => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

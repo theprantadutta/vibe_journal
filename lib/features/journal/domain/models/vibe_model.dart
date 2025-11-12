@@ -17,6 +17,15 @@ class VibeModel {
   final DateTime? processedAt;
   final String? audioUrl; // Pre-signed URL for playback
 
+  // Sync status fields (NEW)
+  final bool isSynced;
+  final int syncRetryCount;
+  final DateTime? lastSyncAttempt;
+
+  // Local audio cache fields (NEW)
+  final String? localAudioPath;
+  final bool isAudioDownloaded;
+
   VibeModel({
     required this.id,
     required this.userId,
@@ -31,6 +40,11 @@ class VibeModel {
     this.processingStatus,
     this.processedAt,
     this.audioUrl,
+    this.isSynced = false,
+    this.syncRetryCount = 0,
+    this.lastSyncAttempt,
+    this.localAudioPath,
+    this.isAudioDownloaded = false,
   });
 
   /// Create VibeModel from Firestore document (backward compatibility)
@@ -74,6 +88,12 @@ class VibeModel {
       createdAt: createdAt != null
           ? Timestamp.fromDate(DateTime.parse(createdAt))
           : Timestamp.now(),
+      // Cloud vibes are always synced by definition
+      isSynced: true,
+      syncRetryCount: 0,
+      lastSyncAttempt: null,
+      localAudioPath: null,
+      isAudioDownloaded: false,
     );
   }
 
@@ -87,12 +107,18 @@ class VibeModel {
       duration: vibe.duration,
       transcription: vibe.transcription,
       mood: vibe.mood,
-      sentimentScore: null, // Not stored in Drift for now
-      sentimentMagnitude: null,
-      processingStatus: null,
-      processedAt: null,
-      audioUrl: null,
+      sentimentScore: vibe.sentimentScore,
+      sentimentMagnitude: vibe.sentimentMagnitude,
+      processingStatus: vibe.processingStatus,
+      processedAt: vibe.processedAt,
+      audioUrl: vibe.localAudioPath ?? vibe.audioPath, // Use local if available
       createdAt: Timestamp.fromDate(vibe.createdAt),
+      // Sync status from database
+      isSynced: vibe.isSynced,
+      syncRetryCount: vibe.syncRetryCount,
+      lastSyncAttempt: vibe.lastSyncAttempt,
+      localAudioPath: vibe.localAudioPath,
+      isAudioDownloaded: vibe.isAudioDownloaded,
     );
   }
 }

@@ -19,6 +19,7 @@ import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_spacing.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/service_locator.dart';
+import '../../../../core/services/sync_service.dart';
 import '../../../../core/services/user_service.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../../core/widgets/empty_state.dart';
@@ -73,6 +74,7 @@ class _JournalScreenState extends State<JournalScreen>
   UserModel? _currentUserModel;
   final _userService = locator<UserService>();
   final _vibeRepository = locator<VibeRepository>();
+  final _syncService = locator<SyncService>();
   final _hapticService = HapticService();
   bool _isSavingVibe = false;
 
@@ -256,86 +258,57 @@ class _JournalScreenState extends State<JournalScreen>
       final fileName = 'vibe_${DateTime.now().millisecondsSinceEpoch}.m4a';
       final audioFile = File(_tempAudioPath!);
 
-      // Premium users: Upload to cloud and sync
-      if (_userService.isPremium) {
-        // Upload audio file to backend
-        final uploadResponse = await _vibeRepository.uploadAudioFile(audioFile);
-
-        if (!uploadResponse.isSuccess || uploadResponse.data == null) {
-          throw Exception(uploadResponse.error ?? 'Failed to upload audio');
-        }
-
-        final audioPath = uploadResponse.data!;
-
-        // Create vibe entry on backend
-        final createResponse = await _vibeRepository.createVibe(
-          audioPath: audioPath,
-          fileName: fileName,
-          durationMs: _duration.inMilliseconds,
-        );
-
-        if (!createResponse.isSuccess) {
-          throw Exception(createResponse.error ?? 'Failed to create vibe');
-        }
-
-        // Fetch updated user profile from backend
-        await _userService.fetchAndUpdateUser();
-
-        // Update local user model
-        if (_userService.isUserLoggedIn) {
-          if (mounted) {
-            setState(() => _currentUserModel = _userService.currentUser);
-          }
-        }
-
-        // Delete temporary audio file after successful upload
-        try {
-          await audioFile.delete();
-        } catch (_) {}
-
-        if (mounted) {
-          SnackBarUtils.showSuccess(context, message: 'Vibe saved and synced to cloud!');
-          _resetToReadyState();
-          _fetchRecentVibes();
-        }
+      // Move temp file to permanent location (both premium and free users)
+      final appDir = await getApplicationDocumentsDirectory();
+      final vibesDir = Directory('${appDir.path}/vibes');
+      if (!vibesDir.existsSync()) {
+        vibesDir.createSync(recursive: true);
       }
-      // Free users: Save locally only
-      else {
-        // Move temp file to permanent location
-        final appDir = await getApplicationDocumentsDirectory();
-        final vibesDir = Directory('${appDir.path}/vibes');
-        if (!vibesDir.existsSync()) {
-          vibesDir.createSync(recursive: true);
-        }
 
-        final permanentPath = '${vibesDir.path}/$fileName';
-        await audioFile.copy(permanentPath);
+      final permanentPath = '${vibesDir.path}/$fileName';
+      await audioFile.copy(permanentPath);
 
-        // Delete temp file
-        try {
-          await audioFile.delete();
-        } catch (_) {}
+      // Delete temp file
+      try {
+        await audioFile.delete();
+      } catch (_) {}
 
-        // Save to local database
-        final saveResponse = await _vibeRepository.saveVibeLocally(
-          audioFile: File(permanentPath),
-          fileName: fileName,
-          durationMs: _duration.inMilliseconds,
-          userId: _currentUserModel!.id,
-        );
+      // Save to local database (both premium and free users)
+      final saveResponse = await _vibeRepository.saveVibeLocally(
+        audioFile: File(permanentPath),
+        fileName: fileName,
+        durationMs: _duration.inMilliseconds,
+        userId: _currentUserModel!.id,
+      );
 
-        if (!saveResponse.isSuccess) {
-          throw Exception(saveResponse.error ?? 'Failed to save vibe locally');
-        }
+      if (!saveResponse.isSuccess) {
+        throw Exception(saveResponse.error ?? 'Failed to save vibe locally');
+      }
 
-        if (mounted) {
+      if (mounted) {
+        // Show appropriate message based on user type
+        if (_userService.isPremium) {
+          SnackBarUtils.showSuccess(
+            context,
+            message: 'Vibe saved! Syncing to cloud...',
+          );
+
+          // Trigger immediate background sync for premium users
+          _syncService.syncPendingVibes().then((result) {
+            if (mounted && result.success) {
+              // Optionally show a subtle success indicator
+              // User already knows it's syncing from the first message
+            }
+          });
+        } else {
           SnackBarUtils.showSuccess(
             context,
             message: 'Vibe saved locally! Upgrade to Premium for cloud sync.',
           );
-          _resetToReadyState();
-          _fetchRecentVibes();
         }
+
+        _resetToReadyState();
+        _fetchRecentVibes();
       }
     } catch (e) {
       if (mounted) {
