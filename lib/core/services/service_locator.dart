@@ -3,6 +3,7 @@ import 'user_service.dart';
 import 'auth_service.dart';
 import 'purchase_service.dart';
 import 'sync_service.dart';
+import 'restore_service.dart';
 import '../database/app_database.dart';
 import '../api/api_client.dart';
 import '../api/subscription_api_client.dart';
@@ -51,6 +52,15 @@ void setupLocator() {
   // Register SyncService (depends on Database, VibeRepository, and UserService)
   locator.registerSingleton<SyncService>(
     SyncService(
+      locator<AppDatabase>(),
+      locator<VibeRepository>(),
+      locator<UserService>(),
+    ),
+  );
+
+  // Register RestoreService (depends on Database, VibeRepository, and UserService)
+  locator.registerSingleton<RestoreService>(
+    RestoreService(
       locator<AppDatabase>(),
       locator<VibeRepository>(),
       locator<UserService>(),
