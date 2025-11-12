@@ -170,7 +170,20 @@ class ApiInterceptor extends Interceptor {
     String message = ApiErrorMessages.unknown;
 
     if (data is Map<String, dynamic>) {
-      message = data['detail'] ?? data['message'] ?? ApiErrorMessages.unknown;
+      // Handle FastAPI validation errors (422) which return detail as a list
+      final detail = data['detail'] ?? data['message'];
+
+      if (detail is String) {
+        message = detail;
+      } else if (detail is List && detail.isNotEmpty) {
+        // FastAPI validation errors: extract first error message
+        final firstError = detail[0];
+        if (firstError is Map<String, dynamic>) {
+          message = firstError['msg'] ?? ApiErrorMessages.unknown;
+        }
+      } else if (detail != null) {
+        message = detail.toString();
+      }
 
       // Check for plan limit error
       if (message.toLowerCase().contains('limit') ||

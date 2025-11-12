@@ -249,102 +249,93 @@ class _JournalScreenState extends State<JournalScreen>
   Future<void> _saveVibe() async {
     if (_tempAudioPath == null || _currentUserModel == null || _isSavingVibe) return;
 
-    // Check cloud storage limit for free users
-    if (!_userService.isPremium &&
-        _currentUserModel!.cloudVibeCount >= _userService.maxCloudVibes) {
-      _hapticService.error();
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) {
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            return AlertDialog(
-              title: Row(
-                children: [
-                  Icon(Icons.cloud_off_rounded, color: AppColors.getSecondary(isDark)),
-                  const SizedBox(width: 12),
-                  const Text('Storage Limit Reached'),
-                ],
-              ),
-              content: Text(
-                'You\'ve reached the limit of ${_userService.maxCloudVibes} vibes. '
-                'Upgrade to Premium for unlimited cloud storage!',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PremiumFeaturesScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.getSecondary(isDark),
-                  ),
-                  child: const Text('Upgrade to Premium'),
-                ),
-              ],
-            );
-          },
-        );
-      }
-      return;
-    }
-
     setState(() => _isSavingVibe = true);
     await _hapticService.vibeSaved();
 
     try {
-      // NEW: Upload audio file to REST API backend
       final fileName = 'vibe_${DateTime.now().millisecondsSinceEpoch}.m4a';
       final audioFile = File(_tempAudioPath!);
 
-      // Upload audio file
-      final uploadResponse = await _vibeRepository.uploadAudioFile(audioFile);
+      // Premium users: Upload to cloud and sync
+      if (_userService.isPremium) {
+        // Upload audio file to backend
+        final uploadResponse = await _vibeRepository.uploadAudioFile(audioFile);
 
-      if (!uploadResponse.isSuccess || uploadResponse.data == null) {
-        throw Exception(uploadResponse.error ?? 'Failed to upload audio');
-      }
+        if (!uploadResponse.isSuccess || uploadResponse.data == null) {
+          throw Exception(uploadResponse.error ?? 'Failed to upload audio');
+        }
 
-      final audioPath = uploadResponse.data!;
+        final audioPath = uploadResponse.data!;
 
-      // Create vibe entry
-      final createResponse = await _vibeRepository.createVibe(
-        audioPath: audioPath,
-        fileName: fileName,
-        durationMs: _duration.inMilliseconds,
-      );
+        // Create vibe entry on backend
+        final createResponse = await _vibeRepository.createVibe(
+          audioPath: audioPath,
+          fileName: fileName,
+          durationMs: _duration.inMilliseconds,
+        );
 
-      if (!createResponse.isSuccess) {
-        throw Exception(createResponse.error ?? 'Failed to create vibe');
-      }
+        if (!createResponse.isSuccess) {
+          throw Exception(createResponse.error ?? 'Failed to create vibe');
+        }
 
-      // Fetch updated user profile from backend (cloud count updated automatically)
-      await _userService.fetchAndUpdateUser();
+        // Fetch updated user profile from backend
+        await _userService.fetchAndUpdateUser();
 
-      // Update local user model
-      if (_userService.isUserLoggedIn) {
+        // Update local user model
+        if (_userService.isUserLoggedIn) {
+          if (mounted) {
+            setState(() => _currentUserModel = _userService.currentUser);
+          }
+        }
+
+        // Delete temporary audio file after successful upload
+        try {
+          await audioFile.delete();
+        } catch (_) {}
+
         if (mounted) {
-          setState(() => _currentUserModel = _userService.currentUser);
+          SnackBarUtils.showSuccess(context, message: 'Vibe saved and synced to cloud!');
+          _resetToReadyState();
+          _fetchRecentVibes();
         }
       }
+      // Free users: Save locally only
+      else {
+        // Move temp file to permanent location
+        final appDir = await getApplicationDocumentsDirectory();
+        final vibesDir = Directory('${appDir.path}/vibes');
+        if (!vibesDir.existsSync()) {
+          vibesDir.createSync(recursive: true);
+        }
 
-      // Delete temporary audio file
-      await audioFile.delete();
+        final permanentPath = '${vibesDir.path}/$fileName';
+        await audioFile.copy(permanentPath);
 
-      if (mounted) {
-        SnackBarUtils.showSuccess(context, message: 'Vibe saved successfully!');
-        _resetToReadyState();
-        // Refresh vibes list
-        _fetchRecentVibes();
+        // Delete temp file
+        try {
+          await audioFile.delete();
+        } catch (_) {}
+
+        // Save to local database
+        final saveResponse = await _vibeRepository.saveVibeLocally(
+          audioFile: File(permanentPath),
+          fileName: fileName,
+          durationMs: _duration.inMilliseconds,
+          userId: _currentUserModel!.id,
+        );
+
+        if (!saveResponse.isSuccess) {
+          throw Exception(saveResponse.error ?? 'Failed to save vibe locally');
+        }
+
+        if (mounted) {
+          SnackBarUtils.showSuccess(
+            context,
+            message: 'Vibe saved locally! Upgrade to Premium for cloud sync.',
+          );
+          _resetToReadyState();
+          _fetchRecentVibes();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -424,8 +415,8 @@ class _JournalScreenState extends State<JournalScreen>
     // Initial fetch
     _fetchRecentVibes();
 
-    // Poll every 15 seconds
-    _vibesPollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    // Poll every 60 seconds
+    _vibesPollingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (mounted) _fetchRecentVibes();
     });
   }
@@ -433,15 +424,24 @@ class _JournalScreenState extends State<JournalScreen>
   Future<void> _fetchRecentVibes() async {
     if (_isLoadingVibes) return;
 
-    setState(() => _isLoadingVibes = true);
+    // Only show loading state if we don't have any vibes yet
+    if (_recentVibes.isEmpty) {
+      setState(() => _isLoadingVibes = true);
+    }
 
     try {
-      final response = await _vibeRepository.fetchVibes(page: 1, pageSize: 5);
+      // Premium users: Fetch from backend (which also caches locally)
+      // Free users: Fetch from local storage only
+      final response = _userService.isPremium
+          ? await _vibeRepository.fetchVibes(page: 1, pageSize: 5)
+          : await _vibeRepository.getLocalVibes();
 
       if (response.isSuccess && response.data != null) {
         if (mounted) {
+          // Take only first 5 vibes for the recent list
+          final vibes = response.data!;
           setState(() {
-            _recentVibes = response.data!;
+            _recentVibes = vibes.take(5).toList();
             _isLoadingVibes = false;
           });
         }

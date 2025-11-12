@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../../../core/api/api_client.dart';
@@ -317,6 +318,92 @@ class VibeRepository {
     } catch (e) {
       // ignore: avoid_print
       print('Error deleting cached vibe: $e');
+    }
+  }
+
+  /// Save vibe locally only (for free users)
+  /// Returns the local vibe model
+  Future<ApiResponse<VibeModel>> saveVibeLocally({
+    required File audioFile,
+    required String fileName,
+    required int durationMs,
+    required String userId,
+  }) async {
+    try {
+      // Generate a local ID for the vibe
+      final vibeId = DateTime.now().millisecondsSinceEpoch.toString();
+      final localAudioPath = audioFile.path;
+
+      // Create vibe model
+      final vibe = VibeModel(
+        id: vibeId,
+        userId: userId,
+        audioPath: localAudioPath,
+        fileName: fileName,
+        duration: durationMs,
+        transcription: '',
+        mood: 'unknown',
+        sentimentScore: null,
+        sentimentMagnitude: null,
+        processingStatus: 'local',
+        createdAt: Timestamp.now(),
+        processedAt: null,
+        audioUrl: localAudioPath,
+      );
+
+      // Save to local database with pending upload flag
+      await _database.into(_database.vibes).insert(
+        VibesCompanion(
+          id: drift.Value(vibe.id),
+          userId: drift.Value(vibe.userId),
+          audioPath: drift.Value(vibe.audioPath),
+          fileName: drift.Value(vibe.fileName),
+          duration: drift.Value(vibe.duration),
+          transcription: drift.Value(vibe.transcription),
+          mood: drift.Value(vibe.mood),
+          sentimentScore: drift.Value(vibe.sentimentScore),
+          sentimentMagnitude: drift.Value(vibe.sentimentMagnitude),
+          processingStatus: drift.Value(vibe.processingStatus),
+          createdAt: drift.Value(vibe.createdAt.toDate()),
+          processedAt: drift.Value(vibe.processedAt?.toDate()),
+          lastSyncedAt: const drift.Value.absent(),
+          isPendingUpload: const drift.Value(true), // Mark as pending upload
+          isPendingDelete: const drift.Value(false),
+        ),
+      );
+
+      return ApiResponse.success(vibe);
+    } catch (e) {
+      return ApiResponse.error(
+        'Failed to save vibe locally: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  /// Get all local vibes (including cloud-synced ones)
+  Future<ApiResponse<List<VibeModel>>> getLocalVibes() async {
+    try {
+      final vibes = await _loadVibesFromCache();
+      return ApiResponse.success(vibes);
+    } catch (e) {
+      return ApiResponse.error(
+        'Failed to load local vibes: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  /// Delete vibe locally
+  Future<ApiResponse<void>> deleteVibeLocally(String vibeId) async {
+    try {
+      await _deleteCachedVibe(vibeId);
+      return ApiResponse.success(null);
+    } catch (e) {
+      return ApiResponse.error(
+        'Failed to delete vibe locally: $e',
+        statusCode: 500,
+      );
     }
   }
 

@@ -11,6 +11,7 @@ import '../../../../core/services/biometric_auth_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/service_locator.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/sync_service.dart';
 import '../../../../core/services/user_service.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../../core/widgets/snackbar_utils.dart';
@@ -34,6 +35,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final UserModel _userModel = locator<UserModel>();
   final _userService = locator<UserService>();
+  final _syncService = locator<SyncService>();
   final _hapticService = HapticService();
   final _soundService = SoundService();
 
@@ -41,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoadingBiometrics = true;
   bool _hapticsEnabled = true;
   bool _soundsEnabled = false;
+  bool _isSyncing = false;
+  int _pendingVibesCount = 0;
 
   @override
   void initState() {
@@ -57,6 +61,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _soundsEnabled = _soundService.isEnabled;
       _isLoadingBiometrics = false;
     });
+
+    // Load pending vibes count if premium
+    if (_userService.isPremium) {
+      _loadPendingVibesCount();
+    }
+  }
+
+  Future<void> _loadPendingVibesCount() async {
+    final count = await _syncService.getPendingVibesCount();
+    if (mounted) {
+      setState(() => _pendingVibesCount = count);
+    }
+  }
+
+  Future<void> _syncVibes() async {
+    if (_isSyncing || !_userService.isPremium) return;
+
+    setState(() => _isSyncing = true);
+    _hapticService.light();
+
+    final result = await _syncService.syncPendingVibes();
+
+    if (mounted) {
+      setState(() => _isSyncing = false);
+
+      if (result.success) {
+        SnackBarUtils.showSuccess(
+          context,
+          message: result.message,
+        );
+        _hapticService.success();
+        _loadPendingVibesCount(); // Refresh count
+      } else {
+        SnackBarUtils.showError(
+          context,
+          message: result.message,
+        );
+        _hapticService.error();
+      }
+    }
   }
 
   Future<void> _onBiometricLockChanged(bool newValue) async {
@@ -178,6 +222,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               .slideY(begin: 0.2, end: 0),
 
           const SizedBox(height: AppSpacing.sectionSpacing),
+
+          // Cloud Sync Section (Premium only)
+          if (isPremium) ...[
+            _buildSectionHeader(context, 'Cloud Sync'),
+            _buildSettingsGroup(
+              context: context,
+              isDark: isDark,
+              children: [
+                _buildSettingsTile(
+                  context: context,
+                  icon: _isSyncing ? Icons.sync_rounded : Icons.cloud_sync_rounded,
+                  title: _isSyncing ? 'Syncing...' : 'Sync Now',
+                  subtitle: _pendingVibesCount > 0
+                      ? '$_pendingVibesCount vibes pending sync'
+                      : 'All vibes synced',
+                  trailing: _isSyncing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                  onTap: _isSyncing ? null : _syncVibes,
+                  isDisabled: _isSyncing,
+                ),
+              ],
+            )
+                .animate()
+                .fadeIn(duration: 300.ms, delay: 75.ms)
+                .slideY(begin: 0.2, end: 0),
+            const SizedBox(height: AppSpacing.sectionSpacing),
+          ],
 
           // Appearance Section
           _buildSectionHeader(context, 'Appearance'),
@@ -365,6 +441,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String? subtitle,
     VoidCallback? onTap,
     Color? iconColor,
+    Widget? trailing,
+    bool isDisabled = false,
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -372,12 +450,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListTile(
       leading: Icon(
         icon,
-        color: iconColor ?? AppColors.getTextSecondary(isDark),
+        color: isDisabled
+            ? AppColors.getTextSecondary(isDark).withValues(alpha: 0.4)
+            : (iconColor ?? AppColors.getTextSecondary(isDark)),
       ),
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle) : null,
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
+      title: Text(
+        title,
+        style: isDisabled
+            ? TextStyle(
+                color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.4),
+              )
+            : null,
+      ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: isDisabled
+                  ? TextStyle(
+                      color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.4),
+                    )
+                  : null,
+            )
+          : null,
+      trailing: trailing ?? const Icon(Icons.chevron_right_rounded),
+      onTap: isDisabled ? null : onTap,
+      enabled: !isDisabled,
     );
   }
 

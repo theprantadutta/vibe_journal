@@ -107,8 +107,10 @@ class _InsightsScreenState extends State<InsightsScreen> {
     if (user == null) return;
 
     try {
-      // Fetch all vibes from REST API
-      final response = await _vibeRepository.fetchVibes(pageSize: 500);
+      // Premium users: Fetch from backend, Free users: Fetch from local storage
+      final response = _userService.isPremium
+          ? await _vibeRepository.fetchVibes(pageSize: 100)
+          : await _vibeRepository.getLocalVibes();
 
       if (!response.isSuccess || response.data == null) {
         if (kDebugMode) {

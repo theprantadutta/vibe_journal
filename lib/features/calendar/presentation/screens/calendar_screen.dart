@@ -15,6 +15,7 @@ import '../../../../config/theme/app_spacing.dart';
 import '../../../../config/theme/app_animations.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/user_service.dart';
 import '../../../../core/services/service_locator.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../journal/domain/models/vibe_model.dart';
@@ -33,6 +34,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   final _hapticService = HapticService();
   final _soundService = SoundService();
   final _vibeRepository = locator<VibeRepository>();
+  final _userService = locator<UserService>();
 
   // State for calendar and data
   final LinkedHashMap<DateTime, List<VibeModel>> _vibesByDay =
@@ -101,8 +103,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _fetchAndProcessVibes() async {
     try {
-      // Fetch all vibes from backend (with pagination support if needed)
-      final response = await _vibeRepository.fetchVibes(pageSize: 500);
+      // Premium users: Fetch from backend, Free users: Fetch from local storage
+      final response = _userService.isPremium
+          ? await _vibeRepository.fetchVibes(pageSize: 100)
+          : await _vibeRepository.getLocalVibes();
 
       if (!response.isSuccess || response.data == null) {
         if (kDebugMode) {

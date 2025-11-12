@@ -10,10 +10,10 @@ class ApiEndpoints {
   static const String authVerify = '/auth/verify';
 
   // Users
-  static const String usersMe = '/users/me/';
-  static const String usersMeNotifications = '/users/me/notifications/';
-  static const String usersMeFcmTokens = '/users/me/fcm-tokens/';
-  static String usersMeFcmToken(String token) => '/users/me/fcm-tokens/$token/';
+  static const String usersMe = '/users/me';
+  static const String usersMeNotifications = '/users/me/notifications';
+  static const String usersMeFcmTokens = '/users/me/fcm-tokens';
+  static String usersMeFcmToken(String token) => '/users/me/fcm-tokens/$token';
 
   // Vibes (Journal Entries)
   static const String vibes = '/vibes/';
