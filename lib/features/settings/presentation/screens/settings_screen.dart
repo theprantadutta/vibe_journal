@@ -16,6 +16,7 @@ import '../../../../core/services/user_service.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../../core/widgets/snackbar_utils.dart';
 import '../../../account/presentation/screens/profile_screen.dart';
+import '../../../journal/data/repositories/vibe_repository.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../legal/presentation/privacy_policy_content.dart';
 import '../../../legal/presentation/terms_and_conditions_content.dart';
@@ -36,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final UserModel _userModel = locator<UserModel>();
   final _userService = locator<UserService>();
   final _syncService = locator<SyncService>();
+  final _vibeRepository = locator<VibeRepository>();
   final _hapticService = HapticService();
   final _soundService = SoundService();
 
@@ -44,7 +46,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _hapticsEnabled = true;
   bool _soundsEnabled = false;
   bool _isSyncing = false;
+  bool _isClearingCache = false;
   int _pendingVibesCount = 0;
+  int _totalVibesCount = 0;
+  int _offlineVibesCount = 0;
+  int _audioCacheSize = 0;
 
   @override
   void initState() {
@@ -62,16 +68,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isLoadingBiometrics = false;
     });
 
-    // Load pending vibes count if premium
+    // Load sync and cache information if premium
     if (_userService.isPremium) {
-      _loadPendingVibesCount();
+      _loadSyncInformation();
     }
   }
 
-  Future<void> _loadPendingVibesCount() async {
-    final count = await _syncService.getPendingVibesCount();
-    if (mounted) {
-      setState(() => _pendingVibesCount = count);
+  Future<void> _loadSyncInformation() async {
+    try {
+      // Load pending vibes count
+      final pendingCount = await _syncService.getPendingVibesCount();
+
+      // Load audio cache size
+      final cacheSize = await _vibeRepository.getAudioCacheSize();
+
+      // Load total vibes and offline count from local vibes
+      final localVibesResponse = await _vibeRepository.getLocalVibes();
+      final localVibes = localVibesResponse.data ?? [];
+      final offlineCount = localVibes.where((v) => v.isAudioDownloaded).length;
+
+      if (mounted) {
+        setState(() {
+          _pendingVibesCount = pendingCount;
+          _audioCacheSize = cacheSize;
+          _totalVibesCount = localVibes.length;
+          _offlineVibesCount = offlineCount;
+        });
+      }
+    } catch (e) {
+      // Silently fail - not critical
+      debugPrint('Error loading sync information: $e');
     }
   }
 
@@ -92,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           message: result.message,
         );
         _hapticService.success();
-        _loadPendingVibesCount(); // Refresh count
+        _loadSyncInformation(); // Refresh all sync info
       } else {
         SnackBarUtils.showError(
           context,
@@ -101,6 +127,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _hapticService.error();
       }
     }
+  }
+
+  Future<void> _clearAudioCache() async {
+    if (_isClearingCache || !_userService.isPremium) return;
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Audio Cache'),
+        content: Text(
+          'This will delete $_offlineVibesCount downloaded audio files (${_formatFileSize(_audioCacheSize)}). '
+          'You can re-download them later by syncing again.\n\n'
+          'Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isClearingCache = true);
+    _hapticService.light();
+
+    try {
+      final deletedCount = await _vibeRepository.clearAudioCache();
+
+      if (mounted) {
+        setState(() => _isClearingCache = false);
+
+        SnackBarUtils.showSuccess(
+          context,
+          message: 'Cleared $deletedCount audio files',
+        );
+        _hapticService.success();
+        _loadSyncInformation(); // Refresh cache info
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isClearingCache = false);
+
+        SnackBarUtils.showError(
+          context,
+          message: 'Failed to clear cache: $e',
+        );
+        _hapticService.error();
+      }
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  String _formatLastSyncTime() {
+    final lastSync = _syncService.lastSyncTime;
+    if (lastSync == null) return 'Never';
+
+    final now = DateTime.now();
+    final difference = now.difference(lastSync);
+
+    if (difference.inSeconds < 60) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    if (difference.inDays == 1) return 'Yesterday';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+
+    // Format as date for older syncs
+    return '${lastSync.day}/${lastSync.month}/${lastSync.year}';
   }
 
   Future<void> _onBiometricLockChanged(bool newValue) async {
@@ -230,6 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context: context,
               isDark: isDark,
               children: [
+                // Sync Now Button
                 _buildSettingsTile(
                   context: context,
                   icon: _isSyncing ? Icons.sync_rounded : Icons.cloud_sync_rounded,
@@ -247,6 +357,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: _isSyncing ? null : _syncVibes,
                   isDisabled: _isSyncing,
                 ),
+
+                _buildDivider(),
+
+                // Last Sync Time
+                ListTile(
+                  leading: Icon(
+                    Icons.schedule_rounded,
+                    color: AppColors.getTextSecondary(isDark),
+                  ),
+                  title: const Text('Last Sync'),
+                  trailing: Text(
+                    _formatLastSyncTime(),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.getTextSecondary(isDark),
+                    ),
+                  ),
+                ),
+
+                _buildDivider(),
+
+                // Offline Audio Status
+                ListTile(
+                  leading: Icon(
+                    Icons.offline_pin_rounded,
+                    color: AppColors.getTextSecondary(isDark),
+                  ),
+                  title: const Text('Available Offline'),
+                  subtitle: _audioCacheSize > 0
+                      ? Text('${_formatFileSize(_audioCacheSize)} used')
+                      : null,
+                  trailing: Text(
+                    '$_offlineVibesCount of $_totalVibesCount',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.getTextSecondary(isDark),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                // Clear Cache Button (only show if there's cached data)
+                if (_offlineVibesCount > 0) ...[
+                  _buildDivider(),
+                  _buildSettingsTile(
+                    context: context,
+                    icon: _isClearingCache
+                        ? Icons.hourglass_empty_rounded
+                        : Icons.delete_sweep_rounded,
+                    iconColor: Colors.red,
+                    title: _isClearingCache
+                        ? 'Clearing Cache...'
+                        : 'Clear Offline Audio',
+                    subtitle: 'Free up ${_formatFileSize(_audioCacheSize)}',
+                    trailing: _isClearingCache
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : null,
+                    onTap: _isClearingCache ? null : _clearAudioCache,
+                    isDisabled: _isClearingCache,
+                  ),
+                ],
               ],
             )
                 .animate()
