@@ -426,6 +426,29 @@ class _JournalScreenState extends State<JournalScreen>
     }
   }
 
+  Future<void> _handleRefresh() async {
+    _hapticService.light();
+
+    // For premium users, trigger sync first then fetch
+    if (_userService.isPremium) {
+      final syncResult = await _syncService.syncPendingVibes();
+
+      if (syncResult.success && mounted) {
+        // Show success message only if there were pending vibes
+        if (syncResult.message.isNotEmpty && !syncResult.message.contains('No pending')) {
+          SnackBarUtils.showSuccess(context, message: syncResult.message);
+        }
+      }
+    }
+
+    // Fetch latest vibes (both premium and free users)
+    await _fetchRecentVibes();
+
+    if (mounted) {
+      _hapticService.success();
+    }
+  }
+
   Future<void> _dismissUpgradeBanner() async {
     await _hapticService.light();
     final preferences = await SharedPreferences.getInstance();
@@ -498,34 +521,38 @@ class _JournalScreenState extends State<JournalScreen>
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
-            child: Column(
-              children: [
-                const SizedBox(height: AppSpacing.lg),
-                // Greeting
-                _buildGreeting(theme, isDark),
+        child: RefreshIndicator(
+          onRefresh: _handleRefresh,
+          color: AppColors.getPrimary(isDark),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.lg),
+                  // Greeting
+                  _buildGreeting(theme, isDark),
 
-                // Upgrade Banner
-                if (_showUpgradeBanner) _buildUpgradeBanner(theme, isDark),
+                  // Upgrade Banner
+                  if (_showUpgradeBanner) _buildUpgradeBanner(theme, isDark),
 
-                const SizedBox(height: AppSpacing.xl),
+                  const SizedBox(height: AppSpacing.xl),
 
-                // The Orb
-                _buildEnhancedOrb(theme, isDark),
+                  // The Orb
+                  _buildEnhancedOrb(theme, isDark),
 
-                const SizedBox(height: AppSpacing.xl),
+                  const SizedBox(height: AppSpacing.xl),
 
-                // Action Buttons
-                _buildActionButtons(theme, isDark),
+                  // Action Buttons
+                  _buildActionButtons(theme, isDark),
 
-                const SizedBox(height: AppSpacing.xxxl),
+                  const SizedBox(height: AppSpacing.xxxl),
 
-                // Recent Vibes
-                _buildRecentVibesSection(theme, isDark),
-              ],
+                  // Recent Vibes
+                  _buildRecentVibesSection(theme, isDark),
+                ],
+              ),
             ),
           ),
         ),
@@ -902,11 +929,20 @@ class _JournalScreenState extends State<JournalScreen>
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '${_formatDuration(vibe.duration)} • ${vibe.mood.toUpperCase()}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      '${_formatDuration(vibe.duration)} • ${vibe.mood.toUpperCase()}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
+                      ),
+                    ),
+                    // Sync status indicator (premium only)
+                    if (_userService.isPremium) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      _buildSyncStatusBadge(vibe, isDark),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -931,5 +967,37 @@ class _JournalScreenState extends State<JournalScreen>
         ],
       ),
     ).animate(delay: (350 + (index * 50)).ms).fadeIn().slideX(begin: 0.2, end: 0);
+  }
+
+  Widget _buildSyncStatusBadge(VibeModel vibe, bool isDark) {
+    IconData icon;
+    Color color;
+    String tooltip;
+
+    if (!vibe.isSynced) {
+      // Pending sync
+      icon = Icons.cloud_upload_outlined;
+      color = Colors.orange;
+      tooltip = 'Pending sync';
+    } else if (vibe.isAudioDownloaded) {
+      // Synced and available offline
+      icon = Icons.offline_pin_rounded;
+      color = Colors.green;
+      tooltip = 'Available offline';
+    } else {
+      // Synced but not downloaded
+      icon = Icons.cloud_done_outlined;
+      color = AppColors.getPrimary(isDark);
+      tooltip = 'Synced to cloud';
+    }
+
+    return Tooltip(
+      message: tooltip,
+      child: Icon(
+        icon,
+        size: 14,
+        color: color,
+      ),
+    );
   }
 }
