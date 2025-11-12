@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_endpoints.dart';
 import '../../../../core/api/api_response.dart';
@@ -407,8 +408,112 @@ class VibeRepository {
     }
   }
 
+  /// Get audio path for playback (prefer local over remote)
+  /// Returns local path if available, otherwise backend URL
+  Future<String> getAudioPath(String vibeId) async {
+    final vibe = await (_database.select(_database.vibes)
+          ..where((t) => t.id.equals(vibeId)))
+        .getSingleOrNull();
+
+    if (vibe == null) {
+      throw Exception('Vibe not found: $vibeId');
+    }
+
+    // Prefer local audio if available and file exists
+    if (vibe.localAudioPath != null && vibe.isAudioDownloaded) {
+      final localFile = File(vibe.localAudioPath!);
+      if (localFile.existsSync()) {
+        return vibe.localAudioPath!;
+      }
+    }
+
+    // Fall back to fetching URL from backend
+    final response = await getAudioUrl(vibeId);
+    if (response.isSuccess && response.data != null) {
+      return response.data!;
+    }
+
+    // Last resort: return stored audio path (might not work if network required)
+    return vibe.audioPath;
+  }
+
+  /// Check if vibe audio is available offline
+  Future<bool> isAudioAvailableOffline(String vibeId) async {
+    final vibe = await (_database.select(_database.vibes)
+          ..where((t) => t.id.equals(vibeId)))
+        .getSingleOrNull();
+
+    if (vibe == null) return false;
+
+    if (vibe.localAudioPath != null && vibe.isAudioDownloaded) {
+      final localFile = File(vibe.localAudioPath!);
+      return localFile.existsSync();
+    }
+
+    return false;
+  }
+
   /// Clear all cached vibes
   Future<void> clearCache() async {
     await _database.delete(_database.vibes).go();
+  }
+
+  /// Clear audio cache (delete downloaded audio files)
+  Future<int> clearAudioCache() async {
+    int deletedCount = 0;
+
+    final vibes = await (_database.select(_database.vibes)
+          ..where((t) => t.isAudioDownloaded.equals(true)))
+        .get();
+
+    for (final vibe in vibes) {
+      if (vibe.localAudioPath != null) {
+        try {
+          final file = File(vibe.localAudioPath!);
+          if (file.existsSync()) {
+            await file.delete();
+            deletedCount++;
+          }
+
+          // Update database to reflect deleted audio
+          await (_database.update(_database.vibes)
+                ..where((t) => t.id.equals(vibe.id)))
+              .write(const VibesCompanion(
+            localAudioPath: drift.Value(null),
+            isAudioDownloaded: drift.Value(false),
+          ));
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error deleting audio file: $e');
+          }
+        }
+      }
+    }
+
+    return deletedCount;
+  }
+
+  /// Get total size of cached audio files
+  Future<int> getAudioCacheSize() async {
+    int totalSize = 0;
+
+    final vibes = await (_database.select(_database.vibes)
+          ..where((t) => t.isAudioDownloaded.equals(true)))
+        .get();
+
+    for (final vibe in vibes) {
+      if (vibe.localAudioPath != null) {
+        try {
+          final file = File(vibe.localAudioPath!);
+          if (file.existsSync()) {
+            totalSize += file.lengthSync();
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+    }
+
+    return totalSize;
   }
 }
