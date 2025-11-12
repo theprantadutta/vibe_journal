@@ -101,7 +101,7 @@ class _MainAppLayoutState extends State<MainAppLayout>
       return; // Only for premium users
     }
 
-    final userId = _userService.currentUser.id;
+    final userId = _userService.currentUser.uid;
     final prefs = await SharedPreferences.getInstance();
     final key = 'first_sync_complete_$userId';
 

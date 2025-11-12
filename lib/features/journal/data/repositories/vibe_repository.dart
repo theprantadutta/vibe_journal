@@ -364,9 +364,9 @@ class VibeRepository {
           mood: drift.Value(vibe.mood),
           sentimentScore: drift.Value(vibe.sentimentScore),
           sentimentMagnitude: drift.Value(vibe.sentimentMagnitude),
-          processingStatus: drift.Value(vibe.processingStatus),
+          processingStatus: drift.Value(vibe.processingStatus ?? 'local'),
           createdAt: drift.Value(vibe.createdAt.toDate()),
-          processedAt: drift.Value(vibe.processedAt?.toDate()),
+          processedAt: drift.Value(vibe.processedAt),
           lastSyncedAt: const drift.Value.absent(),
           isPendingUpload: const drift.Value(true), // Mark as pending upload
           isPendingDelete: const drift.Value(false),

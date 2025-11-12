@@ -367,7 +367,7 @@ class RestoreVibesDialog extends StatelessWidget {
       margin: const EdgeInsets.all(AppSpacing.xl),
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: AppColors.getCardBackground(isDark),
+        color: AppColors.getSurface(isDark),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(

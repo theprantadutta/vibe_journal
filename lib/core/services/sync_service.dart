@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
@@ -8,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import '../database/app_database.dart';
 import '../api/api_client.dart';
 import '../../features/journal/data/repositories/vibe_repository.dart';
-import '../../features/journal/domain/models/vibe_model.dart';
 import 'user_service.dart';
 import 'service_locator.dart';
 
@@ -170,7 +168,7 @@ class SyncService {
             mood: drift.Value(cloudVibe.mood),
             sentimentScore: drift.Value(cloudVibe.sentimentScore),
             sentimentMagnitude: drift.Value(cloudVibe.sentimentMagnitude),
-            processingStatus: drift.Value(cloudVibe.processingStatus),
+            processingStatus: drift.Value(cloudVibe.processingStatus ?? 'completed'),
             createdAt: drift.Value(cloudVibe.createdAt.toDate()),
             processedAt: drift.Value(cloudVibe.processedAt),
             lastSyncedAt: drift.Value(DateTime.now()),

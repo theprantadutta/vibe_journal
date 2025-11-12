@@ -278,7 +278,7 @@ class _JournalScreenState extends State<JournalScreen>
         audioFile: File(permanentPath),
         fileName: fileName,
         durationMs: _duration.inMilliseconds,
-        userId: _currentUserModel!.id,
+        userId: _currentUserModel!.uid,
       );
 
       if (!saveResponse.isSuccess) {

@@ -17,7 +17,6 @@ import '../../../../core/widgets/animated_card.dart';
 import '../../../../core/widgets/snackbar_utils.dart';
 import '../../../account/presentation/screens/profile_screen.dart';
 import '../../../journal/data/repositories/vibe_repository.dart';
-import '../../../auth/domain/models/user_model.dart';
 import '../../../legal/presentation/privacy_policy_content.dart';
 import '../../../legal/presentation/terms_and_conditions_content.dart';
 import '../../../premium/presentation/screens/subscription_management_screen.dart';
@@ -34,7 +33,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final UserModel _userModel = locator<UserModel>();
   final _userService = locator<UserService>();
   final _syncService = locator<SyncService>();
   final _vibeRepository = locator<VibeRepository>();
