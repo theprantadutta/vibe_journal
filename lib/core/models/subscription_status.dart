@@ -2,7 +2,8 @@
 class SubscriptionStatus {
   final bool isPremium;
   final String? subscriptionType; // monthly, yearly, lifetime
-  final String subscriptionStatus; // free, active, expired, grace_period, canceled
+  final String
+  subscriptionStatus; // free, active, expired, grace_period, canceled
   final DateTime? subscriptionExpiresAt;
   final DateTime? trialEndDate;
   final DateTime? gracePeriodEndDate;

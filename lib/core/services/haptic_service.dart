@@ -307,9 +307,4 @@ class HapticService {
 }
 
 /// Enum for haptic feedback types
-enum HapticFeedbackType {
-  light,
-  medium,
-  heavy,
-  selection,
-}
+enum HapticFeedbackType { light, medium, heavy, selection }

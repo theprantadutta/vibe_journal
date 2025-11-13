@@ -27,7 +27,8 @@ class AiRepository {
           );
         }
       } else {
-        final errorMsg = _apiClient.getErrorMessage(response) ??
+        final errorMsg =
+            _apiClient.getErrorMessage(response) ??
             'Failed to get journaling prompt';
         return ApiResponse.error(errorMsg, statusCode: response.statusCode);
       }
@@ -44,10 +45,7 @@ class AiRepository {
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
-      return ApiResponse.error(
-        'Unexpected error: $e',
-        statusCode: 500,
-      );
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
     }
   }
 
@@ -85,7 +83,8 @@ class AiRepository {
           );
         }
       } else {
-        final errorMsg = _apiClient.getErrorMessage(response) ??
+        final errorMsg =
+            _apiClient.getErrorMessage(response) ??
             'Failed to get reflective feedback';
         return ApiResponse.error(errorMsg, statusCode: response.statusCode);
       }
@@ -102,10 +101,7 @@ class AiRepository {
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
-      return ApiResponse.error(
-        'Unexpected error: $e',
-        statusCode: 500,
-      );
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
     }
   }
 
@@ -118,8 +114,8 @@ class AiRepository {
         final data = response.data as Map<String, dynamic>;
         return ApiResponse.success(data);
       } else {
-        final errorMsg = _apiClient.getErrorMessage(response) ??
-            'Failed to check AI status';
+        final errorMsg =
+            _apiClient.getErrorMessage(response) ?? 'Failed to check AI status';
         return ApiResponse.error(errorMsg, statusCode: response.statusCode);
       }
     } on DioException catch (e) {
@@ -135,10 +131,7 @@ class AiRepository {
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
-      return ApiResponse.error(
-        'Unexpected error: $e',
-        statusCode: 500,
-      );
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
     }
   }
 }

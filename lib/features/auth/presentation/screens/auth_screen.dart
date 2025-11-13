@@ -165,7 +165,9 @@ class _AuthScreenState extends State<AuthScreen> {
         final authRepository = locator<AuthRepository>();
 
         // Verify Firebase token with backend and store it
-        final authResponse = await authRepository.verifyFirebaseToken(userCredential.user!);
+        final authResponse = await authRepository.verifyFirebaseToken(
+          userCredential.user!,
+        );
 
         if (!authResponse.isSuccess) {
           if (kDebugMode) {
@@ -292,7 +294,8 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (err) {
       _hapticService.error();
       _soundService.error();
-      _errorMessage = 'An error occurred during Google Sign-In. Please try again.';
+      _errorMessage =
+          'An error occurred during Google Sign-In. Please try again.';
       if (kDebugMode) {
         print('Error during Google Sign-In: $err');
       }
@@ -365,178 +368,227 @@ class _AuthScreenState extends State<AuthScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
                         Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: AppColors.secondaryGradient,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.getSecondary(isDark).withValues(alpha: 0.3),
-                                blurRadius: 20,
-                                spreadRadius: 5,
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: AppColors.secondaryGradient,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.getSecondary(
+                                      isDark,
+                                    ).withValues(alpha: 0.3),
+                                    blurRadius: 20,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.vibration,
-                            size: 50,
-                            color: Colors.white,
-                          ),
-                        ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack).fadeIn(duration: 300.ms, delay: 50.ms).slideY(begin: 0.2, end: 0),
+                              child: const Icon(
+                                Icons.vibration,
+                                size: 50,
+                                color: Colors.white,
+                              ),
+                            )
+                            .animate()
+                            .scale(duration: 400.ms, curve: Curves.easeOutBack)
+                            .fadeIn(duration: 300.ms, delay: 50.ms)
+                            .slideY(begin: 0.2, end: 0),
                         const SizedBox(height: 20),
                         Text(
-                          _isLoginMode ? 'Welcome Back!' : 'Create VibeJournal Account',
-                          textAlign: TextAlign.center,
-                          style: textTheme.headlineSmall?.copyWith(
-                            color: AppColors.getTextPrimary(isDark),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ).animate().fadeIn(duration: 300.ms, delay: 100.ms).slideY(begin: 0.2, end: 0),
+                              _isLoginMode
+                                  ? 'Welcome Back!'
+                                  : 'Create VibeJournal Account',
+                              textAlign: TextAlign.center,
+                              style: textTheme.headlineSmall?.copyWith(
+                                color: AppColors.getTextPrimary(isDark),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                            .animate()
+                            .fadeIn(duration: 300.ms, delay: 100.ms)
+                            .slideY(begin: 0.2, end: 0),
                         const SizedBox(height: 8),
                         Text(
-                          _isLoginMode
-                              ? 'Log in to your VibeJournal'
-                              : 'Sign up to start journaling your vibes',
-                          textAlign: TextAlign.center,
-                          style: textTheme.titleMedium?.copyWith(
-                            color: AppColors.getTextSecondary(isDark),
-                          ),
-                        ).animate().fadeIn(duration: 300.ms, delay: 150.ms).slideY(begin: 0.2, end: 0),
+                              _isLoginMode
+                                  ? 'Log in to your VibeJournal'
+                                  : 'Sign up to start journaling your vibes',
+                              textAlign: TextAlign.center,
+                              style: textTheme.titleMedium?.copyWith(
+                                color: AppColors.getTextSecondary(isDark),
+                              ),
+                            )
+                            .animate()
+                            .fadeIn(duration: 300.ms, delay: 150.ms)
+                            .slideY(begin: 0.2, end: 0),
                         const SizedBox(height: 32),
 
                         if (!_isLoginMode)
                           TextFormField(
-                            key: const ValueKey('fullName'),
-                            controller: _fullNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Full Name',
-                              prefixIcon: Icon(Icons.badge_outlined),
-                            ),
-                            validator: (v) => (v == null || v.trim().length < 3)
-                                ? 'Full name seems too short.'
-                                : null,
-                            textInputAction: TextInputAction.next,
-                            textCapitalization: TextCapitalization.words,
-                          ).animate().fadeIn(duration: 300.ms, delay: 200.ms).slideY(begin: 0.2, end: 0),
+                                key: const ValueKey('fullName'),
+                                controller: _fullNameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Full Name',
+                                  prefixIcon: Icon(Icons.badge_outlined),
+                                ),
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 3)
+                                    ? 'Full name seems too short.'
+                                    : null,
+                                textInputAction: TextInputAction.next,
+                                textCapitalization: TextCapitalization.words,
+                              )
+                              .animate()
+                              .fadeIn(duration: 300.ms, delay: 200.ms)
+                              .slideY(begin: 0.2, end: 0),
                         if (!_isLoginMode) const SizedBox(height: 16),
 
                         TextFormField(
-                          key: const ValueKey('email'),
-                          controller: _emailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (v) => (v == null || !v.trim().contains('@'))
-                              ? 'Please enter a valid email address.'
-                              : null,
-                          textInputAction: TextInputAction.next,
-                        ).animate().fadeIn(duration: 300.ms, delay: 250.ms).slideY(begin: 0.2, end: 0),
+                              key: const ValueKey('email'),
+                              controller: _emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.email_outlined),
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) =>
+                                  (v == null || !v.trim().contains('@'))
+                                  ? 'Please enter a valid email address.'
+                                  : null,
+                              textInputAction: TextInputAction.next,
+                            )
+                            .animate()
+                            .fadeIn(duration: 300.ms, delay: 250.ms)
+                            .slideY(begin: 0.2, end: 0),
                         const SizedBox(height: 16),
 
                         TextFormField(
-                          key: const ValueKey('password'),
-                          controller: _passwordController,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock_outline_rounded),
-                          ),
-                          obscureText: true,
-                          validator: (v) => (v == null || v.trim().length < 7)
-                              ? 'Password must be at least 7 characters long.'
-                              : null,
-                          textInputAction: _isLoginMode
-                              ? TextInputAction.done
-                              : TextInputAction.next,
-                          onFieldSubmitted: _isLoginMode
-                              ? (_) => _submitAuthForm()
-                              : null,
-                        ).animate().fadeIn(duration: 300.ms, delay: 300.ms).slideY(begin: 0.2, end: 0),
+                              key: const ValueKey('password'),
+                              controller: _passwordController,
+                              decoration: const InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: Icon(Icons.lock_outline_rounded),
+                              ),
+                              obscureText: true,
+                              validator: (v) =>
+                                  (v == null || v.trim().length < 7)
+                                  ? 'Password must be at least 7 characters long.'
+                                  : null,
+                              textInputAction: _isLoginMode
+                                  ? TextInputAction.done
+                                  : TextInputAction.next,
+                              onFieldSubmitted: _isLoginMode
+                                  ? (_) => _submitAuthForm()
+                                  : null,
+                            )
+                            .animate()
+                            .fadeIn(duration: 300.ms, delay: 300.ms)
+                            .slideY(begin: 0.2, end: 0),
                         const SizedBox(height: 16),
 
                         if (!_isLoginMode)
                           TextFormField(
-                            key: const ValueKey('confirm_password'),
-                            controller: _confirmPasswordController,
-                            decoration: const InputDecoration(
-                              labelText: 'Confirm Password',
-                              prefixIcon: Icon(Icons.lock_outline_rounded),
-                            ),
-                            obscureText: true,
-                            validator: (v) => (v != _passwordController.text)
-                                ? 'Passwords do not match!'
-                                : null,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _submitAuthForm(),
-                          ).animate().fadeIn(duration: 300.ms, delay: 350.ms).slideY(begin: 0.2, end: 0),
+                                key: const ValueKey('confirm_password'),
+                                controller: _confirmPasswordController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Confirm Password',
+                                  prefixIcon: Icon(Icons.lock_outline_rounded),
+                                ),
+                                obscureText: true,
+                                validator: (v) =>
+                                    (v != _passwordController.text)
+                                    ? 'Passwords do not match!'
+                                    : null,
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _submitAuthForm(),
+                              )
+                              .animate()
+                              .fadeIn(duration: 300.ms, delay: 350.ms)
+                              .slideY(begin: 0.2, end: 0),
 
                         // --- NEW: Legal Agreement Section for Signup ---
                         if (!_isLoginMode)
                           Padding(
-                            padding: const EdgeInsets.only(top: 24.0, bottom: 8.0),
-                            child: Column(
-                              children: [
-                                CheckboxListTile(
-                                  value: _agreedToTerms,
-                                  onChanged: (value) =>
-                                      setState(() => _agreedToTerms = value ?? false),
-                                  title: RichText(
-                                    text: TextSpan(
-                                      style: textTheme.bodySmall,
-                                      children: [
-                                        const TextSpan(
-                                          text: 'I have read and agree to the ',
-                                        ),
-                                        TextSpan(
-                                          text: 'Terms & Conditions',
-                                          style: TextStyle(
-                                            color: AppColors.getPrimary(isDark),
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                          recognizer: TapGestureRecognizer()
-                                            ..onTap = () => _showLegalDialog(
-                                              const TermsAndConditionsContent(),
-                                            ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  controlAffinity: ListTileControlAffinity.leading,
-                                  contentPadding: EdgeInsets.zero,
-                                  dense: true,
+                                padding: const EdgeInsets.only(
+                                  top: 24.0,
+                                  bottom: 8.0,
                                 ),
-                                CheckboxListTile(
-                                  value: _agreedToPolicy,
-                                  onChanged: (value) =>
-                                      setState(() => _agreedToPolicy = value ?? false),
-                                  title: RichText(
-                                    text: TextSpan(
-                                      style: textTheme.bodySmall,
-                                      children: [
-                                        const TextSpan(text: 'I acknowledge the '),
-                                        TextSpan(
-                                          text: 'Privacy Policy',
-                                          style: TextStyle(
-                                            color: AppColors.getPrimary(isDark),
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                          recognizer: TapGestureRecognizer()
-                                            ..onTap = () => _showLegalDialog(
-                                              const PrivacyPolicyContent(),
+                                child: Column(
+                                  children: [
+                                    CheckboxListTile(
+                                      value: _agreedToTerms,
+                                      onChanged: (value) => setState(
+                                        () => _agreedToTerms = value ?? false,
+                                      ),
+                                      title: RichText(
+                                        text: TextSpan(
+                                          style: textTheme.bodySmall,
+                                          children: [
+                                            const TextSpan(
+                                              text:
+                                                  'I have read and agree to the ',
                                             ),
+                                            TextSpan(
+                                              text: 'Terms & Conditions',
+                                              style: TextStyle(
+                                                color: AppColors.getPrimary(
+                                                  isDark,
+                                                ),
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                              recognizer: TapGestureRecognizer()
+                                                ..onTap = () => _showLegalDialog(
+                                                  const TermsAndConditionsContent(),
+                                                ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      contentPadding: EdgeInsets.zero,
+                                      dense: true,
                                     ),
-                                  ),
-                                  controlAffinity: ListTileControlAffinity.leading,
-                                  contentPadding: EdgeInsets.zero,
-                                  dense: true,
+                                    CheckboxListTile(
+                                      value: _agreedToPolicy,
+                                      onChanged: (value) => setState(
+                                        () => _agreedToPolicy = value ?? false,
+                                      ),
+                                      title: RichText(
+                                        text: TextSpan(
+                                          style: textTheme.bodySmall,
+                                          children: [
+                                            const TextSpan(
+                                              text: 'I acknowledge the ',
+                                            ),
+                                            TextSpan(
+                                              text: 'Privacy Policy',
+                                              style: TextStyle(
+                                                color: AppColors.getPrimary(
+                                                  isDark,
+                                                ),
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                              recognizer: TapGestureRecognizer()
+                                                ..onTap = () => _showLegalDialog(
+                                                  const PrivacyPolicyContent(),
+                                                ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      contentPadding: EdgeInsets.zero,
+                                      dense: true,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ).animate().fadeIn(duration: 300.ms, delay: 400.ms).slideY(begin: 0.2, end: 0),
+                              )
+                              .animate()
+                              .fadeIn(duration: 300.ms, delay: 400.ms)
+                              .slideY(begin: 0.2, end: 0),
 
                         if (_errorMessage != null)
                           Padding(
@@ -561,12 +613,19 @@ class _AuthScreenState extends State<AuthScreen> {
                           )
                         else
                           AnimatedButton(
-                            onPressed: _isLoginMode
-                                ? _submitAuthForm
-                                : (canSubmitSignup ? _submitAuthForm : null),
-                            enableHaptic: true,
-                            child: Text(_isLoginMode ? 'LOG IN' : 'CREATE ACCOUNT'),
-                          ).animate().fadeIn(duration: 300.ms, delay: 450.ms).slideY(begin: 0.2, end: 0),
+                                onPressed: _isLoginMode
+                                    ? _submitAuthForm
+                                    : (canSubmitSignup
+                                          ? _submitAuthForm
+                                          : null),
+                                enableHaptic: true,
+                                child: Text(
+                                  _isLoginMode ? 'LOG IN' : 'CREATE ACCOUNT',
+                                ),
+                              )
+                              .animate()
+                              .fadeIn(duration: 300.ms, delay: 450.ms)
+                              .slideY(begin: 0.2, end: 0),
                         const SizedBox(height: 24),
 
                         // OR Divider
@@ -574,12 +633,16 @@ class _AuthScreenState extends State<AuthScreen> {
                           children: [
                             Expanded(
                               child: Divider(
-                                color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.5),
+                                color: AppColors.getTextSecondary(
+                                  isDark,
+                                ).withValues(alpha: 0.5),
                                 thickness: 1,
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               child: Text(
                                 'OR',
                                 style: textTheme.bodyMedium?.copyWith(
@@ -590,7 +653,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                             Expanded(
                               child: Divider(
-                                color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.5),
+                                color: AppColors.getTextSecondary(
+                                  isDark,
+                                ).withValues(alpha: 0.5),
                                 thickness: 1,
                               ),
                             ),
@@ -607,38 +672,49 @@ class _AuthScreenState extends State<AuthScreen> {
                           )
                         else
                           AnimatedButton(
-                            onPressed: _handleGoogleSignIn,
-                            enableHaptic: true,
-                            gradient: LinearGradient(
-                              colors: [
-                                isDark ? Colors.grey.shade800 : Colors.white,
-                                isDark ? Colors.grey.shade700 : Colors.grey.shade50,
-                              ],
-                            ),
-                            border: Border.all(
-                              color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                FaIcon(
-                                  FontAwesomeIcons.google,
-                                  color: Colors.red.shade600,
-                                  size: 20,
+                                onPressed: _handleGoogleSignIn,
+                                enableHaptic: true,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    isDark
+                                        ? Colors.grey.shade800
+                                        : Colors.white,
+                                    isDark
+                                        ? Colors.grey.shade700
+                                        : Colors.grey.shade50,
+                                  ],
                                 ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  _isLoginMode ? 'SIGN IN WITH GOOGLE' : 'SIGN UP WITH GOOGLE',
-                                  style: TextStyle(
-                                    color: AppColors.getTextPrimary(isDark),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
+                                border: Border.all(
+                                  color: AppColors.getTextSecondary(
+                                    isDark,
+                                  ).withValues(alpha: 0.3),
+                                  width: 1.5,
                                 ),
-                              ],
-                            ),
-                          ).animate().fadeIn(duration: 300.ms, delay: 490.ms).slideY(begin: 0.2, end: 0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    FaIcon(
+                                      FontAwesomeIcons.google,
+                                      color: Colors.red.shade600,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      _isLoginMode
+                                          ? 'SIGN IN WITH GOOGLE'
+                                          : 'SIGN UP WITH GOOGLE',
+                                      style: TextStyle(
+                                        color: AppColors.getTextPrimary(isDark),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                              .animate()
+                              .fadeIn(duration: 300.ms, delay: 490.ms)
+                              .slideY(begin: 0.2, end: 0),
                         const SizedBox(height: 16),
 
                         TextButton(

@@ -369,8 +369,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.getTextHint(isDark),
               ),
-            ).animate()
-                .fadeIn(duration: AppAnimations.fast, delay: 450.ms),
+            ).animate().fadeIn(duration: AppAnimations.fast, delay: 450.ms),
             SizedBox(height: AppSpacing.sectionSpacing),
             _PremiumFeatureLock(
               isPremium: isPremium,
@@ -396,50 +395,61 @@ class _InsightsScreenState extends State<InsightsScreen> {
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedCard(
-      color: AppColors.getSurface(isDark),
-      padding: EdgeInsets.all(AppSpacing.cardPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: AppSpacing.iconLg, color: color),
-          SizedBox(height: AppSpacing.md),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(color: Colors.white),
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.all(AppSpacing.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: AppSpacing.iconLg, color: color),
+              SizedBox(height: AppSpacing.md),
+              Text(
+                value,
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineMedium?.copyWith(color: Colors.white),
+              ),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.getTextHint(isDark),
+                ),
+              ),
+            ],
           ),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.getTextHint(isDark)),
-          ),
-        ],
-      ),
-    ).animate()
-        .fadeIn(duration: AppAnimations.fast, delay: AppAnimations.staggerDelayFor(index))
-        .slideY(begin: 0.2, end: 0, duration: AppAnimations.fast, delay: AppAnimations.staggerDelayFor(index));
+        )
+        .animate()
+        .fadeIn(
+          duration: AppAnimations.fast,
+          delay: AppAnimations.staggerDelayFor(index),
+        )
+        .slideY(
+          begin: 0.2,
+          end: 0,
+          duration: AppAnimations.fast,
+          delay: AppAnimations.staggerDelayFor(index),
+        );
   }
 
   Widget _buildPieChartCard(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
 
     // Check if empty before calling reduce to avoid crash
-    if (_moodCounts.isEmpty || _moodCounts.values.every((count) => count == 0)) {
+    if (_moodCounts.isEmpty ||
+        _moodCounts.values.every((count) => count == 0)) {
       return AnimatedCard(
-        color: AppColors.getSurface(isDark),
-        padding: EdgeInsets.all(AppSpacing.sectionSpacing),
-        child: Center(
-          child: Text(
-            "Record some vibes to see your mood distribution!",
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: AppColors.getTextHint(isDark),
+            color: AppColors.getSurface(isDark),
+            padding: EdgeInsets.all(AppSpacing.sectionSpacing),
+            child: Center(
+              child: Text(
+                "Record some vibes to see your mood distribution!",
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: AppColors.getTextHint(isDark),
+                ),
+              ),
             ),
-          ),
-        ),
-      ).animate()
+          )
+          .animate()
           .fadeIn(duration: AppAnimations.fast, delay: 100.ms)
           .slideY(begin: 0.2, end: 0);
     }
@@ -447,253 +457,270 @@ class _InsightsScreenState extends State<InsightsScreen> {
     final totalCount = _moodCounts.values.reduce((a, b) => a + b);
 
     return AnimatedCard(
-      color: AppColors.getSurface(isDark),
-      padding: EdgeInsets.all(AppSpacing.cardPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Mood Distribution", style: theme.textTheme.titleLarge),
-          SizedBox(height: AppSpacing.sectionSpacing),
-          SizedBox(
-            height: 200,
-            child: PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    _hapticService.light(); // Add haptic feedback
-                    setState(() {
-                      if (!event.isInterestedForInteractions ||
-                          pieTouchResponse == null ||
-                          pieTouchResponse.touchedSection == null) {
-                        _touchedIndex = -1;
-                        return;
-                      }
-                      _touchedIndex = pieTouchResponse
-                          .touchedSection!
-                          .touchedSectionIndex;
-                    });
-                  },
-                ),
-                  borderData: FlBorderData(show: false),
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 40,
-                  sections: _moodCounts.entries
-                      .mapIndexed((index, entry) {
-                        final isTouched = index == _touchedIndex;
-                        final radius = isTouched ? 60.0 : 50.0;
-                        final percentage = (entry.value / totalCount * 100)
-                            .round();
-                        if (entry.value == 0) return null;
-                        return PieChartSectionData(
-                          color: AppColors.getMoodColor(entry.key, isDark),
-                          value: entry.value.toDouble(),
-                          title: '$percentage%',
-                          radius: radius,
-                          titleStyle: TextStyle(
-                            fontSize: isTouched ? 16.0 : 14.0,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.5),
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                        );
-                      })
-                      // ignore: deprecated_member_use
-                      .whereNotNull()
-                      .toList(),
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.all(AppSpacing.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Mood Distribution", style: theme.textTheme.titleLarge),
+              SizedBox(height: AppSpacing.sectionSpacing),
+              SizedBox(
+                height: 200,
+                child: PieChart(
+                  PieChartData(
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                        _hapticService.light(); // Add haptic feedback
+                        setState(() {
+                          if (!event.isInterestedForInteractions ||
+                              pieTouchResponse == null ||
+                              pieTouchResponse.touchedSection == null) {
+                            _touchedIndex = -1;
+                            return;
+                          }
+                          _touchedIndex = pieTouchResponse
+                              .touchedSection!
+                              .touchedSectionIndex;
+                        });
+                      },
+                    ),
+                    borderData: FlBorderData(show: false),
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: _moodCounts.entries
+                        .mapIndexed((index, entry) {
+                          final isTouched = index == _touchedIndex;
+                          final radius = isTouched ? 60.0 : 50.0;
+                          final percentage = (entry.value / totalCount * 100)
+                              .round();
+                          if (entry.value == 0) return null;
+                          return PieChartSectionData(
+                            color: AppColors.getMoodColor(entry.key, isDark),
+                            value: entry.value.toDouble(),
+                            title: '$percentage%',
+                            radius: radius,
+                            titleStyle: TextStyle(
+                              fontSize: isTouched ? 16.0 : 14.0,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          );
+                        })
+                        // ignore: deprecated_member_use
+                        .whereNotNull()
+                        .toList(),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ).animate()
-          .fadeIn(duration: AppAnimations.fast, delay: 150.ms)
-          .slideY(begin: 0.2, end: 0);
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(duration: AppAnimations.fast, delay: 150.ms)
+        .slideY(begin: 0.2, end: 0);
   }
 
   Widget _buildLineChartCard(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     return AnimatedCard(
-      color: AppColors.getSurface(isDark),
-      padding: EdgeInsets.all(AppSpacing.cardPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Mood Over Time", style: theme.textTheme.titleLarge),
-          SizedBox(height: AppSpacing.lg),
-          SegmentedButton<ChartTimeRange>(
-            style: SegmentedButton.styleFrom(
-              backgroundColor: AppColors.getInputFill(isDark),
-              foregroundColor: AppColors.getTextSecondary(isDark),
-              selectedForegroundColor: AppColors.getOnPrimary(isDark),
-              selectedBackgroundColor: AppColors.getPrimary(isDark),
-            ),
-            segments: const [
-              ButtonSegment(
-                value: ChartTimeRange.week,
-                label: Text('7D'),
-                icon: Icon(Icons.view_week_outlined, size: 18),
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.all(AppSpacing.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Mood Over Time", style: theme.textTheme.titleLarge),
+              SizedBox(height: AppSpacing.lg),
+              SegmentedButton<ChartTimeRange>(
+                style: SegmentedButton.styleFrom(
+                  backgroundColor: AppColors.getInputFill(isDark),
+                  foregroundColor: AppColors.getTextSecondary(isDark),
+                  selectedForegroundColor: AppColors.getOnPrimary(isDark),
+                  selectedBackgroundColor: AppColors.getPrimary(isDark),
+                ),
+                segments: const [
+                  ButtonSegment(
+                    value: ChartTimeRange.week,
+                    label: Text('7D'),
+                    icon: Icon(Icons.view_week_outlined, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: ChartTimeRange.month,
+                    label: Text('30D'),
+                    icon: Icon(Icons.calendar_view_month_outlined, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: ChartTimeRange.all,
+                    label: Text('All'),
+                    icon: Icon(Icons.all_inclusive_rounded, size: 18),
+                  ),
+                ],
+                selected: {_selectedTimeRange},
+                onSelectionChanged: (newSelection) {
+                  _hapticService.selection(); // Add haptic feedback
+                  setState(() {
+                    _selectedTimeRange = newSelection.first;
+                    _updateChartData();
+                  });
+                },
               ),
-              ButtonSegment(
-                value: ChartTimeRange.month,
-                label: Text('30D'),
-                icon: Icon(Icons.calendar_view_month_outlined, size: 18),
-              ),
-              ButtonSegment(
-                value: ChartTimeRange.all,
-                label: Text('All'),
-                icon: Icon(Icons.all_inclusive_rounded, size: 18),
-              ),
-            ],
-            selected: {_selectedTimeRange},
-            onSelectionChanged: (newSelection) {
-              _hapticService.selection(); // Add haptic feedback
-              setState(() {
-                _selectedTimeRange = newSelection.first;
-                _updateChartData();
-              });
-            },
-          ),
-          SizedBox(height: AppSpacing.xl),
-            SizedBox(
-              height: 200,
-              child: _moodChartSpots.isEmpty
-                  ? Center(
-                      child: Text(
-                        "Not enough data for this time range.",
-                        style: TextStyle(color: AppColors.getTextHint(isDark)),
-                      ),
-                    )
-                  : LineChart(
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          getDrawingHorizontalLine: (v) => FlLine(
-                            color: AppColors.getInputFill(isDark),
-                            strokeWidth: 1,
+              SizedBox(height: AppSpacing.xl),
+              SizedBox(
+                height: 200,
+                child: _moodChartSpots.isEmpty
+                    ? Center(
+                        child: Text(
+                          "Not enough data for this time range.",
+                          style: TextStyle(
+                            color: AppColors.getTextHint(isDark),
                           ),
                         ),
-                        titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
-                              getTitlesWidget: (v, m) {
-                                if (v == 1 || v == 0 || v == -1) {
-                                  return Text(
-                                    v.toStringAsFixed(0),
-                                    style: theme.textTheme.bodySmall,
-                                  );
-                                }
-                                return const Text('');
-                              },
+                      )
+                    : LineChart(
+                        LineChartData(
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            getDrawingHorizontalLine: (v) => FlLine(
+                              color: AppColors.getInputFill(isDark),
+                              strokeWidth: 1,
                             ),
                           ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 30,
-                              interval: (_maxX - _minX) / 4,
-                              getTitlesWidget: (v, m) => Text(
-                                DateFormat.MMMd().format(
-                                  DateTime.fromMillisecondsSinceEpoch(
-                                    v.toInt(),
-                                  ),
-                                ),
-                                style: theme.textTheme.bodySmall,
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 40,
+                                getTitlesWidget: (v, m) {
+                                  if (v == 1 || v == 0 || v == -1) {
+                                    return Text(
+                                      v.toStringAsFixed(0),
+                                      style: theme.textTheme.bodySmall,
+                                    );
+                                  }
+                                  return const Text('');
+                                },
                               ),
                             ),
-                          ),
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                        ),
-                        borderData: FlBorderData(
-                          show: true,
-                          border: Border.all(color: AppColors.getInputFill(isDark)),
-                        ),
-                        minX: _minX,
-                        maxX: _maxX,
-                        minY: -1.1,
-                        maxY: 1.1,
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: _moodChartSpots,
-                            isCurved: true,
-                            gradient: LinearGradient(
-                              colors: [AppColors.getPrimary(isDark), AppColors.getSecondary(isDark)],
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 30,
+                                interval: (_maxX - _minX) / 4,
+                                getTitlesWidget: (v, m) => Text(
+                                  DateFormat.MMMd().format(
+                                    DateTime.fromMillisecondsSinceEpoch(
+                                      v.toInt(),
+                                    ),
+                                  ),
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
                             ),
-                            barWidth: 4,
-                            isStrokeCapRound: true,
-                            dotData: FlDotData(
-                              show: _moodChartSpots.length < 15,
+                            topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
                             ),
-                            belowBarData: BarAreaData(
-                              show: true,
+                            rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                          ),
+                          borderData: FlBorderData(
+                            show: true,
+                            border: Border.all(
+                              color: AppColors.getInputFill(isDark),
+                            ),
+                          ),
+                          minX: _minX,
+                          maxX: _maxX,
+                          minY: -1.1,
+                          maxY: 1.1,
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: _moodChartSpots,
+                              isCurved: true,
                               gradient: LinearGradient(
                                 colors: [
-                                  AppColors.getPrimary(isDark).withValues(alpha: 0.2),
-                                  AppColors.getSecondary(isDark).withValues(alpha: 0.2),
+                                  AppColors.getPrimary(isDark),
+                                  AppColors.getSecondary(isDark),
                                 ],
                               ),
+                              barWidth: 4,
+                              isStrokeCapRound: true,
+                              dotData: FlDotData(
+                                show: _moodChartSpots.length < 15,
+                              ),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.getPrimary(
+                                      isDark,
+                                    ).withValues(alpha: 0.2),
+                                    AppColors.getSecondary(
+                                      isDark,
+                                    ).withValues(alpha: 0.2),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-            ),
-          ],
-        ),
-      ).animate()
-          .fadeIn(duration: AppAnimations.fast, delay: 500.ms)
-          .slideY(begin: 0.2, end: 0);
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(duration: AppAnimations.fast, delay: 500.ms)
+        .slideY(begin: 0.2, end: 0);
   }
 
   Widget _buildFutureMeCard(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     return AnimatedCard(
-      color: AppColors.getSurface(isDark),
-      padding: EdgeInsets.zero,
-      child: ListTile(
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: AppSpacing.sectionSpacing,
-          vertical: AppSpacing.md,
-        ),
-        leading: Icon(
-          Icons.forward_5_rounded,
-          color: AppColors.getPrimary(isDark),
-          size: AppSpacing.iconLg,
-        ),
-        title: Text("Future Me Playback", style: theme.textTheme.titleLarge),
-        subtitle: Text(
-          "A mashup of your vibes from the last 30 days.",
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: AppColors.getTextHint(isDark),
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.zero,
+          child: ListTile(
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.sectionSpacing,
+              vertical: AppSpacing.md,
+            ),
+            leading: Icon(
+              Icons.forward_5_rounded,
+              color: AppColors.getPrimary(isDark),
+              size: AppSpacing.iconLg,
+            ),
+            title: Text(
+              "Future Me Playback",
+              style: theme.textTheme.titleLarge,
+            ),
+            subtitle: Text(
+              "A mashup of your vibes from the last 30 days.",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.getTextHint(isDark),
+              ),
+            ),
+            trailing: IconButton(
+              icon: Icon(
+                _isMashupPlaying
+                    ? Icons.pause_circle_filled_rounded
+                    : Icons.play_circle_filled_rounded,
+                color: AppColors.getPrimary(isDark),
+                size: AppSpacing.iconLg,
+              ),
+              onPressed: () {
+                _hapticService.audioPlayPause(); // Add haptic feedback
+                _playFutureMeMashup();
+              },
+            ),
           ),
-        ),
-        trailing: IconButton(
-          icon: Icon(
-            _isMashupPlaying
-                ? Icons.pause_circle_filled_rounded
-                : Icons.play_circle_filled_rounded,
-            color: AppColors.getPrimary(isDark),
-            size: AppSpacing.iconLg,
-          ),
-          onPressed: () {
-            _hapticService.audioPlayPause(); // Add haptic feedback
-            _playFutureMeMashup();
-          },
-        ),
-      ),
-    ).animate()
+        )
+        .animate()
         .fadeIn(duration: AppAnimations.fast, delay: 550.ms)
         .slideY(begin: 0.2, end: 0);
   }

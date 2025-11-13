@@ -27,16 +27,18 @@ class ApiClient {
 
     // Add logging interceptor in debug mode
     if (ApiConfig.enableLogging) {
-      _dio.interceptors.add(LogInterceptor(
-        request: true,
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: false,
-        responseBody: true,
-        error: true,
-        // ignore: avoid_print
-        logPrint: (obj) => print(obj),
-      ));
+      _dio.interceptors.add(
+        LogInterceptor(
+          request: true,
+          requestHeader: true,
+          requestBody: true,
+          responseHeader: false,
+          responseBody: true,
+          error: true,
+          // ignore: avoid_print
+          logPrint: (obj) => print(obj),
+        ),
+      );
     }
   }
 
@@ -181,9 +183,7 @@ class ApiClient {
         data: formData,
         onSendProgress: onSendProgress,
         cancelToken: cancelToken,
-        options: Options(
-          contentType: 'multipart/form-data',
-        ),
+        options: Options(contentType: 'multipart/form-data'),
       );
       return response;
     } catch (e) {

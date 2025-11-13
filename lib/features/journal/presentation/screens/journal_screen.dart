@@ -96,7 +96,6 @@ class _JournalScreenState extends State<JournalScreen>
   // Vibes list state
   List<VibeModel> _recentVibes = [];
   bool _isLoadingVibes = false;
-  Timer? _vibesPollingTimer;
 
   @override
   void initState() {
@@ -118,7 +117,10 @@ class _JournalScreenState extends State<JournalScreen>
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
     _glowAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _glowAnimationController, curve: Curves.easeInOut),
+      CurvedAnimation(
+        parent: _glowAnimationController,
+        curve: Curves.easeInOut,
+      ),
     );
 
     _player.playerStateStream.listen((state) {
@@ -131,7 +133,7 @@ class _JournalScreenState extends State<JournalScreen>
 
     _initAudio();
     _loadUserModelAndBannerState();
-    _startVibesPolling();
+    _fetchRecentVibes(); // Fetch vibes once on init (no auto-polling)
     FlutterNativeSplash.remove();
   }
 
@@ -143,7 +145,6 @@ class _JournalScreenState extends State<JournalScreen>
     _amplitudeSubscription?.cancel();
     _durationTimer?.cancel();
     _maxDurationTimer?.cancel();
-    _vibesPollingTimer?.cancel();
     _recorder.dispose();
     _player.dispose();
     super.dispose();
@@ -193,12 +194,14 @@ class _JournalScreenState extends State<JournalScreen>
         _progressStreamController.add(RecordingProgress(_duration, 0.0));
       });
 
-      _amplitudeSubscription = _recorder.onAmplitudeChanged(
-        const Duration(milliseconds: 150),
-      ).listen((amp) {
-        final double normalized = _normalizeDb(amp.current);
-        _progressStreamController.add(RecordingProgress(_duration, normalized));
-      });
+      _amplitudeSubscription = _recorder
+          .onAmplitudeChanged(const Duration(milliseconds: 150))
+          .listen((amp) {
+            final double normalized = _normalizeDb(amp.current);
+            _progressStreamController.add(
+              RecordingProgress(_duration, normalized),
+            );
+          });
 
       final maxDurationMs = (_userService.isPremium ? 60 : 5) * 60 * 1000;
       _maxDurationTimer = Timer(Duration(milliseconds: maxDurationMs), () {
@@ -208,14 +211,18 @@ class _JournalScreenState extends State<JournalScreen>
       });
     } catch (e) {
       if (mounted) {
-        SnackBarUtils.showError(context, message: 'Failed to start recording: $e');
+        SnackBarUtils.showError(
+          context,
+          message: 'Failed to start recording: $e',
+        );
         setState(() => _recordingState = AppRecordingState.ready);
       }
     }
   }
 
   double _normalizeDb(double db) {
-    return ((db - _silenceDbThreshold) / (_maxDbThreshold - _silenceDbThreshold))
+    return ((db - _silenceDbThreshold) /
+            (_maxDbThreshold - _silenceDbThreshold))
         .clamp(0.0, 1.0);
   }
 
@@ -242,14 +249,19 @@ class _JournalScreenState extends State<JournalScreen>
         await _player.play();
       } catch (e) {
         if (mounted) {
-          SnackBarUtils.showError(context, message: 'Failed to play preview: $e');
+          SnackBarUtils.showError(
+            context,
+            message: 'Failed to play preview: $e',
+          );
         }
       }
     }
   }
 
   Future<void> _saveVibe() async {
-    if (_tempAudioPath == null || _currentUserModel == null || _isSavingVibe) return;
+    if (_tempAudioPath == null || _currentUserModel == null || _isSavingVibe) {
+      return;
+    }
 
     setState(() => _isSavingVibe = true);
     await _hapticService.vibeSaved();
@@ -355,8 +367,10 @@ class _JournalScreenState extends State<JournalScreen>
     } else {
       final currentUserAuth = FirebaseAuth.instance.currentUser;
       if (currentUserAuth != null) {
-        final userDoc =
-            await _firestore.collection('users').doc(currentUserAuth.uid).get();
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(currentUserAuth.uid)
+            .get();
         final userService = locator<UserService>();
         if (userDoc.exists) {
           final model = UserModel.fromFirestore(userDoc);
@@ -382,16 +396,6 @@ class _JournalScreenState extends State<JournalScreen>
     } else {
       if (mounted) setState(() => _showUpgradeBanner = false);
     }
-  }
-
-  void _startVibesPolling() {
-    // Initial fetch
-    _fetchRecentVibes();
-
-    // Poll every 60 seconds
-    _vibesPollingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      if (mounted) _fetchRecentVibes();
-    });
   }
 
   Future<void> _fetchRecentVibes() async {
@@ -435,7 +439,8 @@ class _JournalScreenState extends State<JournalScreen>
 
       if (syncResult.success && mounted) {
         // Show success message only if there were pending vibes
-        if (syncResult.message.isNotEmpty && !syncResult.message.contains('No pending')) {
+        if (syncResult.message.isNotEmpty &&
+            !syncResult.message.contains('No pending')) {
           SnackBarUtils.showSuccess(context, message: syncResult.message);
         }
       }
@@ -512,9 +517,7 @@ class _JournalScreenState extends State<JournalScreen>
     if (_currentUserModel == null) {
       return Scaffold(
         body: Center(
-          child: CircularProgressIndicator(
-            color: AppColors.getPrimary(isDark),
-          ),
+          child: CircularProgressIndicator(color: AppColors.getPrimary(isDark)),
         ),
       );
     }
@@ -573,13 +576,16 @@ class _JournalScreenState extends State<JournalScreen>
         ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          _getStatusMessage(),
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: AppColors.getTextPrimary(isDark),
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-        ).animate(delay: 100.ms).fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0),
+              _getStatusMessage(),
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: AppColors.getTextPrimary(isDark),
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            )
+            .animate(delay: 100.ms)
+            .fadeIn(duration: 400.ms)
+            .slideY(begin: -0.2, end: 0),
       ],
     );
   }
@@ -638,8 +644,8 @@ class _JournalScreenState extends State<JournalScreen>
         IconData icon;
         Color orbColor;
         VoidCallback? onPressed;
-        bool isPulsing = _recordingState == AppRecordingState.recording ||
-            _player.playing;
+        bool isPulsing =
+            _recordingState == AppRecordingState.recording || _player.playing;
 
         if (isPulsing && !_orbAnimationController.isAnimating) {
           _orbAnimationController.repeat(reverse: true);
@@ -666,11 +672,14 @@ class _JournalScreenState extends State<JournalScreen>
             break;
           default:
             icon = Icons.mic_off_rounded;
-            orbColor = AppColors.getTextSecondary(isDark).withValues(alpha: 0.4);
+            orbColor = AppColors.getTextSecondary(
+              isDark,
+            ).withValues(alpha: 0.4);
             onPressed = _initAudio;
         }
 
-        final currentDisplayDuration = _recordingState == AppRecordingState.recording
+        final currentDisplayDuration =
+            _recordingState == AppRecordingState.recording
             ? progress.duration
             : _playerPosition;
 
@@ -721,17 +730,14 @@ class _JournalScreenState extends State<JournalScreen>
                           BoxShadow(
                             color: orbColor.withValues(alpha: 0.5),
                             blurRadius: 30,
-                            spreadRadius: _recordingState == AppRecordingState.recording
+                            spreadRadius:
+                                _recordingState == AppRecordingState.recording
                                 ? 10 + (progress.normalizedDbLevel * 15)
                                 : 10,
                           ),
                         ],
                       ),
-                      child: Icon(
-                        icon,
-                        size: 80,
-                        color: Colors.white,
-                      ),
+                      child: Icon(icon, size: 80, color: Colors.white),
                     ),
                   ],
                 ),
@@ -754,7 +760,9 @@ class _JournalScreenState extends State<JournalScreen>
               Text(
                 'of ${_formatDuration(_duration.inMilliseconds)}',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
+                  color: AppColors.getTextSecondary(
+                    isDark,
+                  ).withValues(alpha: 0.6),
                 ),
               ),
 
@@ -861,9 +869,7 @@ class _JournalScreenState extends State<JournalScreen>
       return Column(
         children: List.generate(
           3,
-          (index) => ShimmerLoading(
-            child: ShimmerShapes.listItem(),
-          ),
+          (index) => ShimmerLoading(child: ShimmerShapes.listItem()),
         ),
       );
     }
@@ -886,9 +892,15 @@ class _JournalScreenState extends State<JournalScreen>
     );
   }
 
-  Widget _buildVibeCard(VibeModel vibe, ThemeData theme, bool isDark, int index) {
+  Widget _buildVibeCard(
+    VibeModel vibe,
+    ThemeData theme,
+    bool isDark,
+    int index,
+  ) {
     final isActive = _currentlyPlayingOrLoadingId == vibe.id;
-    final isLoading = isActive && _playerState?.processingState == ja.ProcessingState.loading;
+    final isLoading =
+        isActive && _playerState?.processingState == ja.ProcessingState.loading;
     final isPlaying = isActive && _playerState?.playing == true;
 
     final moodColor = AppColors.getMoodColor(vibe.mood, isDark);
@@ -921,9 +933,9 @@ class _JournalScreenState extends State<JournalScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  DateFormat('MMM d, yyyy \'at\' h:mm a').format(
-                    vibe.createdAt.toDate(),
-                  ),
+                  DateFormat(
+                    'MMM d, yyyy \'at\' h:mm a',
+                  ).format(vibe.createdAt.toDate()),
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: AppColors.getTextPrimary(isDark),
                   ),
@@ -934,7 +946,9 @@ class _JournalScreenState extends State<JournalScreen>
                     Text(
                       '${_formatDuration(vibe.duration)} • ${vibe.mood.toUpperCase()}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
+                        color: AppColors.getTextSecondary(
+                          isDark,
+                        ).withValues(alpha: 0.6),
                       ),
                     ),
                     // Sync status indicator (premium only)
@@ -958,8 +972,12 @@ class _JournalScreenState extends State<JournalScreen>
           else
             IconButton(
               icon: Icon(
-                isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,
-                color: isPlaying ? AppColors.getPrimary(isDark) : AppColors.getTextSecondary(isDark),
+                isPlaying
+                    ? Icons.pause_circle_filled_rounded
+                    : Icons.play_circle_filled_rounded,
+                color: isPlaying
+                    ? AppColors.getPrimary(isDark)
+                    : AppColors.getTextSecondary(isDark),
                 size: 40,
               ),
               onPressed: () => _handlePlayback(vibe),
@@ -993,11 +1011,7 @@ class _JournalScreenState extends State<JournalScreen>
 
     return Tooltip(
       message: tooltip,
-      child: Icon(
-        icon,
-        size: 14,
-        color: color,
-      ),
+      child: Icon(icon, size: 14, color: color),
     );
   }
 }

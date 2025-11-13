@@ -20,7 +20,7 @@ class AnimatedCard extends StatefulWidget {
   final Gradient? gradient;
 
   const AnimatedCard({
-    Key? key,
+    super.key,
     required this.child,
     this.onTap,
     this.onLongPress,
@@ -33,7 +33,7 @@ class AnimatedCard extends StatefulWidget {
     this.enableHaptic = true,
     this.pressedScale = AppAnimations.pressedScale,
     this.gradient,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedCard> createState() => _AnimatedCardState();
@@ -54,15 +54,10 @@ class _AnimatedCardState extends State<AnimatedCard>
       duration: AppAnimations.cardPress,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: widget.pressedScale,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppAnimations.cardCurve,
-      ),
-    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.pressedScale)
+        .animate(
+          CurvedAnimation(parent: _controller, curve: AppAnimations.cardCurve),
+        );
   }
 
   @override
@@ -144,10 +139,7 @@ class _AnimatedCardState extends State<AnimatedCard>
         onTapCancel: _onTapCancel,
         onTap: _onTap,
         onLongPress: _onLongPress,
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: card,
-        ),
+        child: ScaleTransition(scale: _scaleAnimation, child: card),
       );
     }
 

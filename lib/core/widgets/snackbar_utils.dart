@@ -26,10 +26,7 @@ class SnackBarUtils {
       SnackBar(
         content: Row(
           children: [
-            Icon(
-              Icons.check_circle,
-              color: AppColors.getSuccess(isDark),
-            ),
+            Icon(Icons.check_circle, color: AppColors.getSuccess(isDark)),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
@@ -43,8 +40,9 @@ class SnackBarUtils {
             ),
           ],
         ),
-        backgroundColor:
-            isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.lightSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -74,10 +72,7 @@ class SnackBarUtils {
       SnackBar(
         content: Row(
           children: [
-            Icon(
-              Icons.error_outline,
-              color: AppColors.getError(isDark),
-            ),
+            Icon(Icons.error_outline, color: AppColors.getError(isDark)),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
@@ -91,8 +86,9 @@ class SnackBarUtils {
             ),
           ],
         ),
-        backgroundColor:
-            isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.lightSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -128,10 +124,7 @@ class SnackBarUtils {
       SnackBar(
         content: Row(
           children: [
-            Icon(
-              Icons.info_outline,
-              color: AppColors.getInfo(isDark),
-            ),
+            Icon(Icons.info_outline, color: AppColors.getInfo(isDark)),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
@@ -145,8 +138,9 @@ class SnackBarUtils {
             ),
           ],
         ),
-        backgroundColor:
-            isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.lightSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -175,10 +169,7 @@ class SnackBarUtils {
       SnackBar(
         content: Row(
           children: [
-            Icon(
-              Icons.warning_amber,
-              color: AppColors.getWarning(isDark),
-            ),
+            Icon(Icons.warning_amber, color: AppColors.getWarning(isDark)),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
@@ -192,8 +183,9 @@ class SnackBarUtils {
             ),
           ],
         ),
-        backgroundColor:
-            isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.lightSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -240,8 +232,9 @@ class SnackBarUtils {
             ),
           ],
         ),
-        backgroundColor:
-            isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.lightSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),

@@ -183,13 +183,13 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
                       .fadeIn(duration: AppAnimations.normal, delay: 150.ms)
                       .slideY(begin: 0.2, end: 0),
                   const SizedBox(height: AppSpacing.lg),
-                  _buildAiFeedbackSection(
-                    theme,
-                    isDark,
-                  )
+                  _buildAiFeedbackSection(theme, isDark)
                       .animate()
                       .fadeIn(duration: AppAnimations.normal, delay: 200.ms)
-                      .slideY(begin: 0.2, end: 0), // This will now check for premium
+                      .slideY(
+                        begin: 0.2,
+                        end: 0,
+                      ), // This will now check for premium
                 ],
               ),
             ),

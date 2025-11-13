@@ -9,11 +9,7 @@ class ShimmerLoading extends StatelessWidget {
   final Widget child;
   final bool isLoading;
 
-  const ShimmerLoading({
-    Key? key,
-    required this.child,
-    this.isLoading = true,
-  }) : super(key: key);
+  const ShimmerLoading({super.key, required this.child, this.isLoading = true});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +18,9 @@ class ShimmerLoading extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Shimmer.fromColors(
-      baseColor: isDark ? AppColors.darkSurface : AppColors.lightSurfaceElevated,
+      baseColor: isDark
+          ? AppColors.darkSurface
+          : AppColors.lightSurfaceElevated,
       highlightColor: isDark
           ? AppColors.darkSurfaceElevated
           : AppColors.lightBackground,
@@ -63,10 +61,7 @@ class ShimmerShapes {
   }
 
   /// Text line shimmer placeholder
-  static Widget textLine({
-    double width = double.infinity,
-    double height = 16,
-  }) {
+  static Widget textLine({double width = double.infinity, double height = 16}) {
     return Container(
       width: width,
       height: height,
@@ -78,13 +73,11 @@ class ShimmerShapes {
   }
 
   /// Card shimmer placeholder
-  static Widget card({
-    double? height,
-    EdgeInsetsGeometry? margin,
-  }) {
+  static Widget card({double? height, EdgeInsetsGeometry? margin}) {
     return Container(
       height: height ?? 120,
-      margin: margin ??
+      margin:
+          margin ??
           const EdgeInsets.symmetric(
             horizontal: AppSpacing.screenPaddingHorizontal,
             vertical: AppSpacing.elementSpacing,

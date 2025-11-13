@@ -30,19 +30,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     OnboardingPage(
       icon: Icons.mic_rounded,
       title: 'Voice Your Vibes',
-      description: 'Record your thoughts and feelings with just your voice. Quick, easy, and natural.',
+      description:
+          'Record your thoughts and feelings with just your voice. Quick, easy, and natural.',
       gradient: AppColors.primaryGradient,
     ),
     OnboardingPage(
       icon: Icons.auto_awesome_rounded,
       title: 'AI-Powered Insights',
-      description: 'Get intelligent feedback and discover patterns in your emotional journey.',
+      description:
+          'Get intelligent feedback and discover patterns in your emotional journey.',
       gradient: AppColors.vibeyGradient,
     ),
     OnboardingPage(
       icon: Icons.trending_up_rounded,
       title: 'Track Your Growth',
-      description: 'Visualize your mood trends and celebrate your progress over time.',
+      description:
+          'Visualize your mood trends and celebrate your progress over time.',
       gradient: AppColors.secondaryGradient,
     ),
   ];
@@ -160,9 +163,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   enableHaptic: true,
                   gradient: _pages[_currentPage].gradient,
                   child: Text(
-                    _currentPage == _pages.length - 1
-                        ? 'Get Started'
-                        : 'Next',
+                    _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -227,29 +228,22 @@ class _OnboardingPageWidgetState extends State<_OnboardingPageWidget>
       duration: const Duration(milliseconds: 600),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutBack,
-      ),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.6),
-      ),
+      CurvedAnimation(parent: _controller, curve: const Interval(0.0, 0.6)),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     // Start animation when widget appears
     _controller.forward();
@@ -290,11 +284,7 @@ class _OnboardingPageWidgetState extends State<_OnboardingPageWidget>
                     ),
                   ],
                 ),
-                child: Icon(
-                  widget.page.icon,
-                  size: 80,
-                  color: Colors.white,
-                ),
+                child: Icon(widget.page.icon, size: 80, color: Colors.white),
               ),
             ),
           ),

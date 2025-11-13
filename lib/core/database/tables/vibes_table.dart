@@ -20,7 +20,8 @@ class Vibes extends Table {
   RealColumn get sentimentMagnitude => real().nullable()();
 
   // Processing status
-  TextColumn get processingStatus => text().withDefault(const Constant('completed'))();
+  TextColumn get processingStatus =>
+      text().withDefault(const Constant('completed'))();
 
   // Metadata
   DateTimeColumn get createdAt => dateTime()();
@@ -28,8 +29,10 @@ class Vibes extends Table {
   DateTimeColumn get lastSyncedAt => dateTime().nullable()();
 
   // Local flags
-  BoolColumn get isPendingUpload => boolean().withDefault(const Constant(false))();
-  BoolColumn get isPendingDelete => boolean().withDefault(const Constant(false))();
+  BoolColumn get isPendingUpload =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get isPendingDelete =>
+      boolean().withDefault(const Constant(false))();
 
   // Sync status (NEW in schema v3)
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
@@ -38,7 +41,8 @@ class Vibes extends Table {
 
   // Local audio cache (NEW in schema v3)
   TextColumn get localAudioPath => text().nullable()();
-  BoolColumn get isAudioDownloaded => boolean().withDefault(const Constant(false))();
+  BoolColumn get isAudioDownloaded =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};

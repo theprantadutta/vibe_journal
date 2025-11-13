@@ -9,16 +9,17 @@ class GradientBackground extends StatelessWidget {
   final bool animate;
 
   const GradientBackground({
-    Key? key,
+    super.key,
     required this.child,
     this.gradient,
     this.animate = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final effectiveGradient = gradient ??
+    final effectiveGradient =
+        gradient ??
         (isDark
             ? AppColors.darkBackgroundGradient
             : AppColors.lightBackgroundGradient);
@@ -44,29 +45,26 @@ class AnimatedGradientBackground extends StatefulWidget {
   final Duration duration;
 
   const AnimatedGradientBackground({
-    Key? key,
+    super.key,
     required this.child,
     required this.gradient,
     this.duration = const Duration(seconds: 20),
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedGradientBackground> createState() =>
       _AnimatedGradientBackgroundState();
 }
 
-class _AnimatedGradientBackgroundState
-    extends State<AnimatedGradientBackground>
+class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    )..repeat(reverse: true);
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..repeat(reverse: true);
   }
 
   @override
@@ -81,9 +79,7 @@ class _AnimatedGradientBackgroundState
       animation: _controller,
       builder: (context, child) {
         return Container(
-          decoration: BoxDecoration(
-            gradient: _createAnimatedGradient(),
-          ),
+          decoration: BoxDecoration(gradient: _createAnimatedGradient()),
           child: widget.child,
         );
       },
@@ -143,8 +139,9 @@ class GradientBackgrounds {
   /// Subtle background gradient based on theme
   static Widget subtle({required Widget child, required bool isDark}) {
     return GradientBackground(
-      gradient:
-          isDark ? AppColors.darkBackgroundGradient : AppColors.lightBackgroundGradient,
+      gradient: isDark
+          ? AppColors.darkBackgroundGradient
+          : AppColors.lightBackgroundGradient,
       child: child,
     );
   }

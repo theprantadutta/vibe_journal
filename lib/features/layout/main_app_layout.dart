@@ -22,10 +22,7 @@ import '../ai_assistant/presentation/screens/ai_assistant_screen.dart';
 class MainAppLayout extends StatefulWidget {
   final bool checkForRestore;
 
-  const MainAppLayout({
-    super.key,
-    this.checkForRestore = false,
-  });
+  const MainAppLayout({super.key, this.checkForRestore = false});
 
   @override
   State<MainAppLayout> createState() => _MainAppLayoutState();
@@ -68,21 +65,20 @@ class _MainAppLayoutState extends State<MainAppLayout>
       duration: AppAnimations.normal,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _transitionController,
-      curve: AppAnimations.fadeCurve,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: AppAnimations.fadeCurve,
+      ),
+    );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0.05, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _transitionController,
-      curve: AppAnimations.emphasized,
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0.05, 0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _transitionController,
+            curve: AppAnimations.emphasized,
+          ),
+        );
 
     // Start with page visible
     _transitionController.value = 1.0;
@@ -216,10 +212,7 @@ class _MainAppLayoutState extends State<MainAppLayout>
         builder: (context, child) {
           return FadeTransition(
             opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: child,
-            ),
+            child: SlideTransition(position: _slideAnimation, child: child),
           );
         },
         child: IndexedStack(
@@ -302,11 +295,7 @@ class _MainAppLayoutState extends State<MainAppLayout>
                   scale: isSelected ? 1.1 : 1.0,
                   duration: AppAnimations.fast,
                   curve: AppAnimations.spring,
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: color, size: 24),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 AnimatedDefaultTextStyle(

@@ -18,7 +18,7 @@ class CelebrationParticles extends StatefulWidget {
   final Widget? child;
 
   const CelebrationParticles({
-    Key? key,
+    super.key,
     this.autoPlay = true,
     this.duration = const Duration(seconds: 3),
     this.colors,
@@ -28,7 +28,7 @@ class CelebrationParticles extends StatefulWidget {
     this.gravity = 0.3,
     this.loop = false,
     this.child,
-  }) : super(key: key);
+  });
 
   @override
   State<CelebrationParticles> createState() => _CelebrationParticlesState();
@@ -40,9 +40,7 @@ class _CelebrationParticlesState extends State<CelebrationParticles> {
   @override
   void initState() {
     super.initState();
-    _controller = ConfettiController(
-      duration: widget.duration,
-    );
+    _controller = ConfettiController(duration: widget.duration);
 
     if (widget.autoPlay) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -73,7 +71,8 @@ class _CelebrationParticlesState extends State<CelebrationParticles> {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColors = widget.colors ??
+    final effectiveColors =
+        widget.colors ??
         [
           AppColors.darkPrimary,
           AppColors.darkSecondary,
@@ -186,10 +185,10 @@ class CelebrationTrigger extends StatefulWidget {
   final GlobalKey<_CelebrationTriggerState> celebrationKey;
 
   const CelebrationTrigger({
-    Key? key,
+    super.key,
     required this.child,
     required this.celebrationKey,
-  }) : super(key: key);
+  });
 
   @override
   State<CelebrationTrigger> createState() => _CelebrationTriggerState();
@@ -201,9 +200,7 @@ class _CelebrationTriggerState extends State<CelebrationTrigger> {
   @override
   void initState() {
     super.initState();
-    _controller = ConfettiController(
-      duration: const Duration(seconds: 3),
-    );
+    _controller = ConfettiController(duration: const Duration(seconds: 3));
   }
 
   @override
@@ -213,9 +210,7 @@ class _CelebrationTriggerState extends State<CelebrationTrigger> {
   }
 
   /// Trigger the celebration from anywhere
-  void celebrate({
-    CelebrationType type = CelebrationType.standard,
-  }) {
+  void celebrate({CelebrationType type = CelebrationType.standard}) {
     if (mounted) {
       _controller.play();
     }
@@ -254,22 +249,13 @@ class _CelebrationTriggerState extends State<CelebrationTrigger> {
 }
 
 /// Types of celebrations
-enum CelebrationType {
-  subtle,
-  standard,
-  epic,
-  premium,
-  streak,
-}
+enum CelebrationType { subtle, standard, epic, premium, streak }
 
 /// Simple confetti burst overlay (can be shown with an Overlay)
 class ConfettiBurst extends StatefulWidget {
   final VoidCallback? onComplete;
 
-  const ConfettiBurst({
-    Key? key,
-    this.onComplete,
-  }) : super(key: key);
+  const ConfettiBurst({super.key, this.onComplete});
 
   @override
   State<ConfettiBurst> createState() => _ConfettiBurstState();
@@ -281,9 +267,7 @@ class _ConfettiBurstState extends State<ConfettiBurst> {
   @override
   void initState() {
     super.initState();
-    _controller = ConfettiController(
-      duration: const Duration(seconds: 3),
-    );
+    _controller = ConfettiController(duration: const Duration(seconds: 3));
     _controller.play();
 
     // Auto-complete after animation
@@ -330,7 +314,10 @@ class _ConfettiBurstState extends State<ConfettiBurst> {
 }
 
 /// Helper function to show confetti as an overlay
-void showConfetti(BuildContext context, {CelebrationType type = CelebrationType.standard}) {
+void showConfetti(
+  BuildContext context, {
+  CelebrationType type = CelebrationType.standard,
+}) {
   final overlay = Overlay.of(context);
   late OverlayEntry entry;
 

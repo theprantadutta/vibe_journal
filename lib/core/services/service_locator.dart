@@ -31,9 +31,7 @@ void setupLocator() {
   locator.registerSingleton<VibeRepository>(
     VibeRepository(locator<ApiClient>(), locator<AppDatabase>()),
   );
-  locator.registerSingleton<AiRepository>(
-    AiRepository(locator<ApiClient>()),
-  );
+  locator.registerSingleton<AiRepository>(AiRepository(locator<ApiClient>()));
 
   // Register Subscription API Client
   locator.registerSingleton<SubscriptionApiClient>(

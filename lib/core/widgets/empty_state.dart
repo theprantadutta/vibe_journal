@@ -13,14 +13,14 @@ class EmptyState extends StatelessWidget {
   final Color? iconColor;
 
   const EmptyState({
-    Key? key,
+    super.key,
     required this.icon,
     required this.title,
     this.message,
     this.action,
     this.iconSize = 80,
     this.iconColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,37 +36,36 @@ class EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              icon,
-              size: iconSize,
-              color: iconColor ?? theme.colorScheme.primary.withValues(alpha: 0.5),
-            )
-                .animate()
-                .scale(
-                  duration: 500.ms,
-                  curve: Curves.easeOutBack,
+                  icon,
+                  size: iconSize,
+                  color:
+                      iconColor ??
+                      theme.colorScheme.primary.withValues(alpha: 0.5),
                 )
+                .animate()
+                .scale(duration: 500.ms, curve: Curves.easeOutBack)
                 .fade(),
             const SizedBox(height: AppSpacing.xl),
             Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            )
+                  title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                )
                 .animate(delay: 100.ms)
                 .fadeIn(duration: 400.ms)
                 .slideY(begin: 0.3, end: 0),
             if (message != null) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
-                message!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: textColor,
-                ),
-                textAlign: TextAlign.center,
-              )
+                    message!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: textColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  )
                   .animate(delay: 200.ms)
                   .fadeIn(duration: 400.ms)
                   .slideY(begin: 0.3, end: 0),

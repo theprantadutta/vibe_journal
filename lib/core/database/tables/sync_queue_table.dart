@@ -18,7 +18,9 @@ class SyncQueue extends Table {
   IntColumn get maxRetries => integer().withDefault(const Constant(3))();
 
   // Status
-  TextColumn get status => text().withDefault(const Constant('pending'))(); // 'pending', 'processing', 'failed', 'completed'
+  TextColumn get status => text().withDefault(
+    const Constant('pending'),
+  )(); // 'pending', 'processing', 'failed', 'completed'
   TextColumn get errorMessage => text().nullable()();
 
   // Metadata

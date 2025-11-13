@@ -18,13 +18,17 @@ class AppColors {
   // --- Background & Surfaces ---
   static const Color darkBackground = Color(0xFF000000); // True black AMOLED
   static const Color darkSurface = Color(0xFF1C1C1E); // Cards, sheets
-  static const Color darkSurfaceElevated = Color(0xFF2C2C2E); // Higher elevation
+  static const Color darkSurfaceElevated = Color(
+    0xFF2C2C2E,
+  ); // Higher elevation
   static const Color darkAppBar = Color(0xFF000000);
 
   // --- Text Colors ---
   static const Color darkTextPrimary = Color(0xFFFFFFFF); // Headlines, titles
   static const Color darkTextSecondary = Color(0xDEFFFFFF); // 87% - Body text
-  static const Color darkTextTertiary = Color(0x99FFFFFF); // 60% - Hints, captions
+  static const Color darkTextTertiary = Color(
+    0x99FFFFFF,
+  ); // 60% - Hints, captions
   static const Color darkTextDisabled = Color(0x61FFFFFF); // 38% - Disabled
 
   // --- Component Colors ---
@@ -118,7 +122,8 @@ class AppColors {
   // Helper to get mood color based on theme
   static Color getMoodColor(String mood, bool isDark) {
     final colors = isDark ? moodColorsDark : moodColorsLight;
-    return colors[mood] ?? (isDark ? moodColorsDark['unknown']! : moodColorsLight['unknown']!);
+    return colors[mood] ??
+        (isDark ? moodColorsDark['unknown']! : moodColorsLight['unknown']!);
   }
 
   // ============================================================
@@ -178,21 +183,14 @@ class AppColors {
 
   // --- Special Effect Gradients ---
   static const Gradient shimmerGradient = LinearGradient(
-    colors: [
-      Color(0xFF2A2A2E),
-      Color(0xFF3A3A3E),
-      Color(0xFF2A2A2E),
-    ],
+    colors: [Color(0xFF2A2A2E), Color(0xFF3A3A3E), Color(0xFF2A2A2E)],
     stops: [0.0, 0.5, 1.0],
     begin: Alignment(-1.0, 0.0),
     end: Alignment(2.0, 0.0),
   );
 
   static const Gradient glassGradient = LinearGradient(
-    colors: [
-      Color(0x40FFFFFF),
-      Color(0x10FFFFFF),
-    ],
+    colors: [Color(0x40FFFFFF), Color(0x10FFFFFF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -225,19 +223,23 @@ class AppColors {
   static Color getPrimary(bool isDark) => isDark ? darkPrimary : lightPrimary;
 
   // Get secondary color based on theme
-  static Color getSecondary(bool isDark) => isDark ? darkSecondary : lightSecondary;
+  static Color getSecondary(bool isDark) =>
+      isDark ? darkSecondary : lightSecondary;
 
   // Get background color based on theme
-  static Color getBackground(bool isDark) => isDark ? darkBackground : lightBackground;
+  static Color getBackground(bool isDark) =>
+      isDark ? darkBackground : lightBackground;
 
   // Get surface color based on theme
   static Color getSurface(bool isDark) => isDark ? darkSurface : lightSurface;
 
   // Get text primary color based on theme
-  static Color getTextPrimary(bool isDark) => isDark ? darkTextPrimary : lightTextPrimary;
+  static Color getTextPrimary(bool isDark) =>
+      isDark ? darkTextPrimary : lightTextPrimary;
 
   // Get text secondary color based on theme
-  static Color getTextSecondary(bool isDark) => isDark ? darkTextSecondary : lightTextSecondary;
+  static Color getTextSecondary(bool isDark) =>
+      isDark ? darkTextSecondary : lightTextSecondary;
 
   // Get success color based on theme
   static Color getSuccess(bool isDark) => isDark ? successDark : successLight;
@@ -252,20 +254,26 @@ class AppColors {
   static Color getInfo(bool isDark) => isDark ? infoDark : infoLight;
 
   // Get text hint color (tertiary text)
-  static Color getTextHint(bool isDark) => isDark ? darkTextTertiary : lightTextTertiary;
+  static Color getTextHint(bool isDark) =>
+      isDark ? darkTextTertiary : lightTextTertiary;
 
   // Get text disabled color
-  static Color getTextDisabled(bool isDark) => isDark ? darkTextDisabled : lightTextDisabled;
+  static Color getTextDisabled(bool isDark) =>
+      isDark ? darkTextDisabled : lightTextDisabled;
 
   // Get onPrimary color (text on primary background)
-  static Color getOnPrimary(bool isDark) => isDark ? darkOnPrimary : lightOnPrimary;
+  static Color getOnPrimary(bool isDark) =>
+      isDark ? darkOnPrimary : lightOnPrimary;
 
   // Get onSecondary color (text on secondary background)
-  static Color getOnSecondary(bool isDark) => isDark ? darkOnSecondary : lightOnSecondary;
+  static Color getOnSecondary(bool isDark) =>
+      isDark ? darkOnSecondary : lightOnSecondary;
 
   // Get input fill color
-  static Color getInputFill(bool isDark) => isDark ? darkInputFill : lightInputFill;
+  static Color getInputFill(bool isDark) =>
+      isDark ? darkInputFill : lightInputFill;
 
   // Get surface elevated color
-  static Color getSurfaceElevated(bool isDark) => isDark ? darkSurfaceElevated : lightSurfaceElevated;
+  static Color getSurfaceElevated(bool isDark) =>
+      isDark ? darkSurfaceElevated : lightSurfaceElevated;
 }

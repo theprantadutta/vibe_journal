@@ -29,7 +29,8 @@ class UserRepository {
 
         return ApiResponse.success(userModel);
       } else {
-        final errorMsg = _apiClient.getErrorMessage(response) ??
+        final errorMsg =
+            _apiClient.getErrorMessage(response) ??
             'Failed to fetch user profile';
         return ApiResponse.error(errorMsg, statusCode: response.statusCode);
       }
@@ -63,31 +64,30 @@ class UserRepository {
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
-      return ApiResponse.error(
-        'Unexpected error: $e',
-        statusCode: 500,
-      );
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
     }
   }
 
   /// Cache user profile in local Drift database
   Future<void> _cacheUser(UserModel userModel) async {
     try {
-      await _database.into(_database.users).insertOnConflictUpdate(
-        UsersCompanion(
-          uid: drift.Value(userModel.uid),
-          email: drift.Value(userModel.email),
-          fullName: drift.Value(userModel.fullName),
-          plan: drift.Value(userModel.plan),
-          cloudVibeCount: drift.Value(userModel.cloudVibeCount),
-          maxCloudVibes: drift.Value(userModel.maxCloudVibes),
-          notificationPreferences: drift.Value(
-            _serializeNotificationPreferences(userModel),
-          ),
-          createdAt: drift.Value(userModel.createdAt.toDate()),
-          lastSyncedAt: drift.Value(DateTime.now()),
-        ),
-      );
+      await _database
+          .into(_database.users)
+          .insertOnConflictUpdate(
+            UsersCompanion(
+              uid: drift.Value(userModel.uid),
+              email: drift.Value(userModel.email),
+              fullName: drift.Value(userModel.fullName),
+              plan: drift.Value(userModel.plan),
+              cloudVibeCount: drift.Value(userModel.cloudVibeCount),
+              maxCloudVibes: drift.Value(userModel.maxCloudVibes),
+              notificationPreferences: drift.Value(
+                _serializeNotificationPreferences(userModel),
+              ),
+              createdAt: drift.Value(userModel.createdAt.toDate()),
+              lastSyncedAt: drift.Value(DateTime.now()),
+            ),
+          );
     } catch (e) {
       // Log error but don't throw - caching failure shouldn't block user
       // ignore: avoid_print

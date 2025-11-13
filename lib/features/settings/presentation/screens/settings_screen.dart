@@ -111,17 +111,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _isSyncing = false);
 
       if (result.success) {
-        SnackBarUtils.showSuccess(
-          context,
-          message: result.message,
-        );
+        SnackBarUtils.showSuccess(context, message: result.message);
         _hapticService.success();
         _loadSyncInformation(); // Refresh all sync info
       } else {
-        SnackBarUtils.showError(
-          context,
-          message: result.message,
-        );
+        SnackBarUtils.showError(context, message: result.message);
         _hapticService.error();
       }
     }
@@ -175,10 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _isClearingCache = false);
 
-        SnackBarUtils.showError(
-          context,
-          message: 'Failed to clear cache: $e',
-        );
+        SnackBarUtils.showError(context, message: 'Failed to clear cache: $e');
         _hapticService.error();
       }
     }
@@ -259,71 +250,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        centerTitle: false,
-      ),
+      appBar: AppBar(title: const Text('Settings'), centerTitle: false),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
         children: [
           // Account Section
           _buildSectionHeader(context, 'Account'),
           _buildSettingsGroup(
-            context: context,
-            isDark: isDark,
-            children: [
-              _buildSettingsTile(
                 context: context,
-                icon: Icons.person_outline_rounded,
-                title: 'Manage Account',
-                subtitle: 'Profile, usage, and data',
-                onTap: () {
-                  _hapticService.light();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                  );
-                },
-              ),
-              _buildDivider(),
-              _buildSettingsTile(
-                context: context,
-                icon: Icons.workspace_premium_rounded,
-                iconColor: isPremium
-                    ? AppColors.getPrimary(isDark)
-                    : AppColors.getSecondary(isDark),
-                title: isPremium ? 'Premium Features' : 'Upgrade to Premium',
-                subtitle: isPremium
-                    ? 'View all premium benefits'
-                    : 'Unlock all features',
-                onTap: () {
-                  _hapticService.light();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const PremiumFeaturesScreen(),
+                isDark: isDark,
+                children: [
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.person_outline_rounded,
+                    title: 'Manage Account',
+                    subtitle: 'Profile, usage, and data',
+                    onTap: () {
+                      _hapticService.light();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ProfileScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDivider(),
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.workspace_premium_rounded,
+                    iconColor: isPremium
+                        ? AppColors.getPrimary(isDark)
+                        : AppColors.getSecondary(isDark),
+                    title: isPremium
+                        ? 'Premium Features'
+                        : 'Upgrade to Premium',
+                    subtitle: isPremium
+                        ? 'View all premium benefits'
+                        : 'Unlock all features',
+                    onTap: () {
+                      _hapticService.light();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PremiumFeaturesScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (isPremium) ...[
+                    _buildDivider(),
+                    _buildSettingsTile(
+                      context: context,
+                      icon: Icons.manage_accounts_rounded,
+                      title: 'Manage Subscription',
+                      subtitle: 'View and manage your subscription',
+                      onTap: () {
+                        _hapticService.light();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const SubscriptionManagementScreen(),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-              if (isPremium) ...[
-                _buildDivider(),
-                _buildSettingsTile(
-                  context: context,
-                  icon: Icons.manage_accounts_rounded,
-                  title: 'Manage Subscription',
-                  subtitle: 'View and manage your subscription',
-                  onTap: () {
-                    _hapticService.light();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SubscriptionManagementScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ],
-          )
+                  ],
+                ],
+              )
               .animate()
               .fadeIn(duration: 300.ms, delay: 50.ms)
               .slideY(begin: 0.2, end: 0),
@@ -334,92 +327,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (isPremium) ...[
             _buildSectionHeader(context, 'Cloud Sync'),
             _buildSettingsGroup(
-              context: context,
-              isDark: isDark,
-              children: [
-                // Sync Now Button
-                _buildSettingsTile(
                   context: context,
-                  icon: _isSyncing ? Icons.sync_rounded : Icons.cloud_sync_rounded,
-                  title: _isSyncing ? 'Syncing...' : 'Sync Now',
-                  subtitle: _pendingVibesCount > 0
-                      ? '$_pendingVibesCount vibes pending sync'
-                      : 'All vibes synced',
-                  trailing: _isSyncing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
-                  onTap: _isSyncing ? null : _syncVibes,
-                  isDisabled: _isSyncing,
-                ),
-
-                _buildDivider(),
-
-                // Last Sync Time
-                ListTile(
-                  leading: Icon(
-                    Icons.schedule_rounded,
-                    color: AppColors.getTextSecondary(isDark),
-                  ),
-                  title: const Text('Last Sync'),
-                  trailing: Text(
-                    _formatLastSyncTime(),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.getTextSecondary(isDark),
+                  isDark: isDark,
+                  children: [
+                    // Sync Now Button
+                    _buildSettingsTile(
+                      context: context,
+                      icon: _isSyncing
+                          ? Icons.sync_rounded
+                          : Icons.cloud_sync_rounded,
+                      title: _isSyncing ? 'Syncing...' : 'Sync Now',
+                      subtitle: _pendingVibesCount > 0
+                          ? '$_pendingVibesCount vibes pending sync'
+                          : 'All vibes synced',
+                      trailing: _isSyncing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : null,
+                      onTap: _isSyncing ? null : _syncVibes,
+                      isDisabled: _isSyncing,
                     ),
-                  ),
-                ),
 
-                _buildDivider(),
+                    _buildDivider(),
 
-                // Offline Audio Status
-                ListTile(
-                  leading: Icon(
-                    Icons.offline_pin_rounded,
-                    color: AppColors.getTextSecondary(isDark),
-                  ),
-                  title: const Text('Available Offline'),
-                  subtitle: _audioCacheSize > 0
-                      ? Text('${_formatFileSize(_audioCacheSize)} used')
-                      : null,
-                  trailing: Text(
-                    '$_offlineVibesCount of $_totalVibesCount',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.getTextSecondary(isDark),
-                      fontWeight: FontWeight.w600,
+                    // Last Sync Time
+                    ListTile(
+                      leading: Icon(
+                        Icons.schedule_rounded,
+                        color: AppColors.getTextSecondary(isDark),
+                      ),
+                      title: const Text('Last Sync'),
+                      trailing: Text(
+                        _formatLastSyncTime(),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.getTextSecondary(isDark),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
 
-                // Clear Cache Button (only show if there's cached data)
-                if (_offlineVibesCount > 0) ...[
-                  _buildDivider(),
-                  _buildSettingsTile(
-                    context: context,
-                    icon: _isClearingCache
-                        ? Icons.hourglass_empty_rounded
-                        : Icons.delete_sweep_rounded,
-                    iconColor: Colors.red,
-                    title: _isClearingCache
-                        ? 'Clearing Cache...'
-                        : 'Clear Offline Audio',
-                    subtitle: 'Free up ${_formatFileSize(_audioCacheSize)}',
-                    trailing: _isClearingCache
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                    onTap: _isClearingCache ? null : _clearAudioCache,
-                    isDisabled: _isClearingCache,
-                  ),
-                ],
-              ],
-            )
+                    _buildDivider(),
+
+                    // Offline Audio Status
+                    ListTile(
+                      leading: Icon(
+                        Icons.offline_pin_rounded,
+                        color: AppColors.getTextSecondary(isDark),
+                      ),
+                      title: const Text('Available Offline'),
+                      subtitle: _audioCacheSize > 0
+                          ? Text('${_formatFileSize(_audioCacheSize)} used')
+                          : null,
+                      trailing: Text(
+                        '$_offlineVibesCount of $_totalVibesCount',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.getTextSecondary(isDark),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                    // Clear Cache Button (only show if there's cached data)
+                    if (_offlineVibesCount > 0) ...[
+                      _buildDivider(),
+                      _buildSettingsTile(
+                        context: context,
+                        icon: _isClearingCache
+                            ? Icons.hourglass_empty_rounded
+                            : Icons.delete_sweep_rounded,
+                        iconColor: Colors.red,
+                        title: _isClearingCache
+                            ? 'Clearing Cache...'
+                            : 'Clear Offline Audio',
+                        subtitle: 'Free up ${_formatFileSize(_audioCacheSize)}',
+                        trailing: _isClearingCache
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : null,
+                        onTap: _isClearingCache ? null : _clearAudioCache,
+                        isDisabled: _isClearingCache,
+                      ),
+                    ],
+                  ],
+                )
                 .animate()
                 .fadeIn(duration: 300.ms, delay: 75.ms)
                 .slideY(begin: 0.2, end: 0),
@@ -429,12 +426,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Appearance Section
           _buildSectionHeader(context, 'Appearance'),
           _buildSettingsGroup(
-            context: context,
-            isDark: isDark,
-            children: [
-              _buildThemeSelector(context),
-            ],
-          )
+                context: context,
+                isDark: isDark,
+                children: [_buildThemeSelector(context)],
+              )
               .animate()
               .fadeIn(duration: 300.ms, delay: 100.ms)
               .slideY(begin: 0.2, end: 0),
@@ -444,56 +439,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Preferences Section
           _buildSectionHeader(context, 'Preferences'),
           _buildSettingsGroup(
-            context: context,
-            isDark: isDark,
-            children: [
-              _buildSettingsTile(
                 context: context,
-                icon: Icons.notifications_outlined,
-                title: 'Notifications',
-                subtitle: 'Reminders and alerts',
-                onTap: () {
-                  _hapticService.light();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationSettingsScreen(),
+                isDark: isDark,
+                children: [
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.notifications_outlined,
+                    title: 'Notifications',
+                    subtitle: 'Reminders and alerts',
+                    onTap: () {
+                      _hapticService.light();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationSettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (!_isLoadingBiometrics) ...[
+                    _buildDivider(),
+                    _buildSwitchTile(
+                      context: context,
+                      icon: Icons.fingerprint_rounded,
+                      title: 'Biometric Lock',
+                      subtitle: 'Secure with Face ID / Fingerprint',
+                      value: _biometricLockEnabled,
+                      onChanged: isPremium ? _onBiometricLockChanged : null,
+                      isLocked: !isPremium,
+                      lockMessage: 'Premium feature',
                     ),
-                  );
-                },
-              ),
-              if (!_isLoadingBiometrics) ...[
-                _buildDivider(),
-                _buildSwitchTile(
-                  context: context,
-                  icon: Icons.fingerprint_rounded,
-                  title: 'Biometric Lock',
-                  subtitle: 'Secure with Face ID / Fingerprint',
-                  value: _biometricLockEnabled,
-                  onChanged: isPremium ? _onBiometricLockChanged : null,
-                  isLocked: !isPremium,
-                  lockMessage: 'Premium feature',
-                ),
-              ],
-              _buildDivider(),
-              _buildSwitchTile(
-                context: context,
-                icon: Icons.vibration_rounded,
-                title: 'Haptic Feedback',
-                subtitle: 'Tactile responses',
-                value: _hapticsEnabled,
-                onChanged: _onHapticsChanged,
-              ),
-              _buildDivider(),
-              _buildSwitchTile(
-                context: context,
-                icon: Icons.volume_up_rounded,
-                title: 'Sound Effects',
-                subtitle: 'UI sounds (opt-in)',
-                value: _soundsEnabled,
-                onChanged: _onSoundsChanged,
-              ),
-            ],
-          )
+                  ],
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    context: context,
+                    icon: Icons.vibration_rounded,
+                    title: 'Haptic Feedback',
+                    subtitle: 'Tactile responses',
+                    value: _hapticsEnabled,
+                    onChanged: _onHapticsChanged,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    context: context,
+                    icon: Icons.volume_up_rounded,
+                    title: 'Sound Effects',
+                    subtitle: 'UI sounds (opt-in)',
+                    value: _soundsEnabled,
+                    onChanged: _onSoundsChanged,
+                  ),
+                ],
+              )
               .animate()
               .fadeIn(duration: 300.ms, delay: 150.ms)
               .slideY(begin: 0.2, end: 0),
@@ -503,64 +498,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // About Section
           _buildSectionHeader(context, 'About'),
           _buildSettingsGroup(
-            context: context,
-            isDark: isDark,
-            children: [
-              _buildSettingsTile(
                 context: context,
-                icon: Icons.privacy_tip_outlined,
-                title: 'Privacy Policy',
-                onTap: () {
-                  _hapticService.light();
-                  showDialog(
+                isDark: isDark,
+                children: [
+                  _buildSettingsTile(
                     context: context,
-                    builder: (ctx) => Dialog(
-                      child: SizedBox(
-                        height: 600,
-                        child: const PrivacyPolicyContent(
-                          showAcceptanceControls: false,
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy Policy',
+                    onTap: () {
+                      _hapticService.light();
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => Dialog(
+                          child: SizedBox(
+                            height: 600,
+                            child: const PrivacyPolicyContent(
+                              showAcceptanceControls: false,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildDivider(),
-              _buildSettingsTile(
-                context: context,
-                icon: Icons.gavel_rounded,
-                title: 'Terms of Service',
-                onTap: () {
-                  _hapticService.light();
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => Dialog(
-                      child: SizedBox(
-                        height: 600,
-                        child: const TermsAndConditionsContent(
-                          showAcceptanceControls: false,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildDivider(),
-              ListTile(
-                leading: Icon(
-                  Icons.info_outline_rounded,
-                  color: AppColors.getTextSecondary(isDark),
-                ),
-                title: const Text('App Version'),
-                trailing: Text(
-                  '1.0.0',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
+                      );
+                    },
                   ),
-                ),
-              ),
-            ],
-          )
+                  _buildDivider(),
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.gavel_rounded,
+                    title: 'Terms of Service',
+                    onTap: () {
+                      _hapticService.light();
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => Dialog(
+                          child: SizedBox(
+                            height: 600,
+                            child: const TermsAndConditionsContent(
+                              showAcceptanceControls: false,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDivider(),
+                  ListTile(
+                    leading: Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.getTextSecondary(isDark),
+                    ),
+                    title: const Text('App Version'),
+                    trailing: Text(
+                      '1.0.0',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.getTextSecondary(
+                          isDark,
+                        ).withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ],
+              )
               .animate()
               .fadeIn(duration: 300.ms, delay: 200.ms)
               .slideY(begin: 0.2, end: 0),
@@ -629,7 +626,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title,
         style: isDisabled
             ? TextStyle(
-                color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.4),
+                color: AppColors.getTextSecondary(
+                  isDark,
+                ).withValues(alpha: 0.4),
               )
             : null,
       ),
@@ -638,7 +637,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle,
               style: isDisabled
                   ? TextStyle(
-                      color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.4),
+                      color: AppColors.getTextSecondary(
+                        isDark,
+                      ).withValues(alpha: 0.4),
                     )
                   : null,
             )
@@ -735,10 +736,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Theme',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('Theme', style: theme.textTheme.titleMedium),
                     Text(
                       'Choose your preferred theme',
                       style: theme.textTheme.bodySmall,

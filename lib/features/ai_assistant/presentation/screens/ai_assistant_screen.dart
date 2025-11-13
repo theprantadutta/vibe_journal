@@ -114,7 +114,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         if (response.isSuccess && response.data != null) {
           responseText = response.data!;
         } else {
-          responseText = response.error ?? "Sorry, I couldn't generate a prompt.";
+          responseText =
+              response.error ?? "Sorry, I couldn't generate a prompt.";
         }
       } else if (action == 'get_feedback') {
         // Get reflective feedback from backend
@@ -126,7 +127,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         if (response.isSuccess && response.data != null) {
           responseText = response.data!;
         } else {
-          responseText = response.error ?? "Sorry, I couldn't generate feedback.";
+          responseText =
+              response.error ?? "Sorry, I couldn't generate feedback.";
         }
       } else if (action == 'chat') {
         // For general chat, we can use the feedback endpoint with just the text
@@ -272,7 +274,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.send_rounded, color: AppColors.getSecondary(isDark)),
+              icon: Icon(
+                Icons.send_rounded,
+                color: AppColors.getSecondary(isDark),
+              ),
               onPressed: _isAwaitingResponse
                   ? null
                   : () {
@@ -360,7 +365,9 @@ class _ChatMessageBubble extends StatelessWidget {
                 horizontal: AppSpacing.lg,
                 vertical: AppSpacing.md,
               ),
-              color: isUser ? AppColors.getPrimary(isDark) : AppColors.getSurface(isDark),
+              color: isUser
+                  ? AppColors.getPrimary(isDark)
+                  : AppColors.getSurface(isDark),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(AppSpacing.radiusLg),
                 topRight: Radius.circular(AppSpacing.radiusLg),
@@ -374,7 +381,9 @@ class _ChatMessageBubble extends StatelessWidget {
               child: SelectableText(
                 message.text,
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: isUser ? AppColors.getOnPrimary(isDark) : AppColors.getTextPrimary(isDark),
+                  color: isUser
+                      ? AppColors.getOnPrimary(isDark)
+                      : AppColors.getTextPrimary(isDark),
                 ),
               ),
             ),

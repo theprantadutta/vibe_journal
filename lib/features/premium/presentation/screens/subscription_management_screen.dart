@@ -120,8 +120,8 @@ class _SubscriptionManagementScreenState
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildErrorState()
-              : _buildContent(),
+          ? _buildErrorState()
+          : _buildContent(),
     );
   }
 
@@ -140,10 +140,7 @@ class _SubscriptionManagementScreenState
               style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('Retry'),
-            ),
+            ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
           ],
         ),
       ),
@@ -177,7 +174,7 @@ class _SubscriptionManagementScreenState
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: _status!.isPremium
-              ? [primaryColor, primaryColor.withOpacity(0.7)]
+              ? [primaryColor, primaryColor.withValues(alpha: 0.7)]
               : [Colors.grey.shade800, Colors.grey.shade700],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -217,7 +214,9 @@ class _SubscriptionManagementScreenState
           if (_status!.subscriptionExpiresAt != null && !_status!.isInTrial)
             _buildInfoRow(
               Icons.calendar_today,
-              _status!.subscriptionStatus == 'canceled' ? 'Access Until' : 'Renews',
+              _status!.subscriptionStatus == 'canceled'
+                  ? 'Access Until'
+                  : 'Renews',
               DateFormat.yMMMd().format(_status!.subscriptionExpiresAt!),
             ),
           if (_status!.daysRemaining != null)
@@ -231,7 +230,7 @@ class _SubscriptionManagementScreenState
               margin: const EdgeInsets.only(top: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
+                color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -261,10 +260,7 @@ class _SubscriptionManagementScreenState
           const SizedBox(width: 8),
           Text(
             '$label: ',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           Text(
             value,
@@ -325,10 +321,7 @@ class _SubscriptionManagementScreenState
       children: [
         const Text(
           'Purchase History',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         ...(_history.map((item) => _buildHistoryItem(item)).toList()),
@@ -364,28 +357,19 @@ class _SubscriptionManagementScreenState
               if (item.price != null && item.currency != null)
                 Text(
                   '${item.currency} ${item.price}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: textSecondaryColor,
-                  ),
+                  style: TextStyle(fontSize: 14, color: textSecondaryColor),
                 ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'Purchased: ${DateFormat.yMMMd().format(item.purchaseTime)}',
-            style: TextStyle(
-              fontSize: 14,
-              color: textSecondaryColor,
-            ),
+            style: TextStyle(fontSize: 14, color: textSecondaryColor),
           ),
           if (item.expiresAt != null)
             Text(
               'Expires: ${DateFormat.yMMMd().format(item.expiresAt!)}',
-              style: TextStyle(
-                fontSize: 14,
-                color: textSecondaryColor,
-              ),
+              style: TextStyle(fontSize: 14, color: textSecondaryColor),
             ),
         ],
       ),

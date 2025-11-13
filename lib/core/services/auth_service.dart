@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
+import '../../features/journal/data/repositories/vibe_repository.dart';
 import 'service_locator.dart';
 
 class AuthService {
@@ -11,6 +12,7 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late final AuthRepository _authRepository;
+  late final VibeRepository _vibeRepository;
 
   AuthService() {
     // Initialize with web client ID from environment
@@ -18,8 +20,9 @@ class AuthService {
       serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
     );
 
-    // Get auth repository from service locator
+    // Get repositories from service locator
     _authRepository = locator<AuthRepository>();
+    _vibeRepository = locator<VibeRepository>();
   }
 
   /// Sign in with Google account
@@ -47,14 +50,18 @@ class AuthService {
       );
 
       // Sign in to Firebase with the Google credential
-      final UserCredential result = await _auth.signInWithCredential(credential);
+      final UserCredential result = await _auth.signInWithCredential(
+        credential,
+      );
 
       // Create or update user profile in Firestore (backward compatibility)
       if (result.user != null) {
         await _createOrUpdateUserProfile(result.user!);
 
         // NEW: Verify Firebase token with backend and get JWT
-        final authResponse = await _authRepository.verifyFirebaseToken(result.user!);
+        final authResponse = await _authRepository.verifyFirebaseToken(
+          result.user!,
+        );
 
         if (!authResponse.isSuccess) {
           if (kDebugMode) {
@@ -65,6 +72,24 @@ class AuthService {
         } else {
           if (kDebugMode) {
             print('✅ Backend JWT token received and stored');
+          }
+
+          // Fetch all vibe metadata from backend (audio downloaded lazily)
+          if (kDebugMode) {
+            print('🔄 LOGIN: Fetching vibe metadata from cloud...');
+          }
+
+          final vibesSyncResponse = await _vibeRepository.fetchAllVibesMetadata();
+
+          if (vibesSyncResponse.isSuccess) {
+            if (kDebugMode) {
+              print('✅ LOGIN: Synced ${vibesSyncResponse.data} vibes from cloud');
+            }
+          } else {
+            if (kDebugMode) {
+              print('⚠️ LOGIN: Failed to fetch vibes: ${vibesSyncResponse.error}');
+            }
+            // Don't fail login if vibe sync fails - user can still use the app
           }
         }
       }
@@ -103,9 +128,7 @@ class AuthService {
       });
     } else {
       // Update last sign-in timestamp for existing users
-      await userDoc.update({
-        'lastSignIn': Timestamp.now(),
-      });
+      await userDoc.update({'lastSignIn': Timestamp.now()});
     }
   }
 

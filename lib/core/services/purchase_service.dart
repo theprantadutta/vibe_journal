@@ -22,8 +22,10 @@ class PurchaseService {
   };
 
   // Stream of purchase updates
-  final _purchaseUpdatesController = StreamController<PurchaseDetails>.broadcast();
-  Stream<PurchaseDetails> get purchaseUpdates => _purchaseUpdatesController.stream;
+  final _purchaseUpdatesController =
+      StreamController<PurchaseDetails>.broadcast();
+  Stream<PurchaseDetails> get purchaseUpdates =>
+      _purchaseUpdatesController.stream;
 
   // Available products
   List<ProductDetails> _products = [];
@@ -68,8 +70,8 @@ class PurchaseService {
   /// Load available products from Google Play
   Future<void> _loadProducts() async {
     try {
-      final ProductDetailsResponse response =
-          await _inAppPurchase.queryProductDetails(_productIds);
+      final ProductDetailsResponse response = await _inAppPurchase
+          .queryProductDetails(_productIds);
 
       if (response.notFoundIDs.isNotEmpty) {
         debugPrint('⚠️ Products not found: ${response.notFoundIDs}');
@@ -166,7 +168,9 @@ class PurchaseService {
   /// Handle purchase updates
   void _onPurchaseUpdate(List<PurchaseDetails> purchaseDetailsList) {
     for (var purchaseDetails in purchaseDetailsList) {
-      debugPrint('📦 Purchase update: ${purchaseDetails.productID} - ${purchaseDetails.status}');
+      debugPrint(
+        '📦 Purchase update: ${purchaseDetails.productID} - ${purchaseDetails.status}',
+      );
 
       // Broadcast the purchase update
       _purchaseUpdatesController.add(purchaseDetails);

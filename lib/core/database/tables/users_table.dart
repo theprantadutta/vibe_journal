@@ -14,14 +14,19 @@ class Users extends Table {
 
   // Plan details
   IntColumn get maxCloudVibes => integer().withDefault(const Constant(75))();
-  IntColumn get maxRecordingDurationMinutes => integer().withDefault(const Constant(5))();
+  IntColumn get maxRecordingDurationMinutes =>
+      integer().withDefault(const Constant(5))();
 
   // Subscription details
-  TextColumn get subscriptionType => text().nullable()();  // monthly, yearly, lifetime
-  TextColumn get subscriptionStatus => text().withDefault(const Constant('free'))();  // free, active, expired, etc.
+  TextColumn get subscriptionType =>
+      text().nullable()(); // monthly, yearly, lifetime
+  TextColumn get subscriptionStatus => text().withDefault(
+    const Constant('free'),
+  )(); // free, active, expired, etc.
 
   // Notification preferences (stored as JSON string)
-  TextColumn get notificationPreferences => text().withDefault(const Constant('{}'))();
+  TextColumn get notificationPreferences =>
+      text().withDefault(const Constant('{}'))();
 
   // Metadata
   DateTimeColumn get createdAt => dateTime()();

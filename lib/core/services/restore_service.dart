@@ -22,7 +22,7 @@ class RestoreService {
   bool _isRestoring = false;
 
   RestoreService(this._database, this._vibeRepository, this._userService)
-      : _apiClient = locator<ApiClient>();
+    : _apiClient = locator<ApiClient>();
 
   bool get isRestoring => _isRestoring;
 
@@ -122,9 +122,9 @@ class RestoreService {
       for (final vibe in allVibes) {
         try {
           // Check if vibe already exists locally
-          final existingVibe = await (_database.select(_database.vibes)
-                ..where((t) => t.id.equals(vibe.id)))
-              .getSingleOrNull();
+          final existingVibe = await (_database.select(
+            _database.vibes,
+          )..where((t) => t.id.equals(vibe.id))).getSingleOrNull();
 
           // Download audio file if needed
           String? localAudioPath;
@@ -148,10 +148,40 @@ class RestoreService {
           // Save or update vibe in local database
           if (existingVibe == null) {
             // Insert new vibe
-            await _database.into(_database.vibes).insert(
+            await _database
+                .into(_database.vibes)
+                .insert(
+                  VibesCompanion(
+                    id: drift.Value(vibe.id),
+                    userId: drift.Value(vibe.userId),
+                    audioPath: drift.Value(vibe.audioPath),
+                    fileName: drift.Value(vibe.fileName),
+                    duration: drift.Value(vibe.duration),
+                    transcription: drift.Value(vibe.transcription),
+                    mood: drift.Value(vibe.mood),
+                    sentimentScore: drift.Value(vibe.sentimentScore),
+                    sentimentMagnitude: drift.Value(vibe.sentimentMagnitude),
+                    processingStatus: drift.Value(
+                      vibe.processingStatus ?? 'completed',
+                    ),
+                    createdAt: drift.Value(vibe.createdAt.toDate()),
+                    processedAt: drift.Value(vibe.processedAt),
+                    lastSyncedAt: drift.Value(DateTime.now()),
+                    isPendingUpload: const drift.Value(false),
+                    isPendingDelete: const drift.Value(false),
+                    isSynced: const drift.Value(true),
+                    syncRetryCount: const drift.Value(0),
+                    lastSyncAttempt: const drift.Value.absent(),
+                    localAudioPath: drift.Value(localAudioPath),
+                    isAudioDownloaded: drift.Value(isAudioDownloaded),
+                  ),
+                );
+          } else {
+            // Update existing vibe with cloud data
+            await (_database.update(
+              _database.vibes,
+            )..where((t) => t.id.equals(vibe.id))).write(
               VibesCompanion(
-                id: drift.Value(vibe.id),
-                userId: drift.Value(vibe.userId),
                 audioPath: drift.Value(vibe.audioPath),
                 fileName: drift.Value(vibe.fileName),
                 duration: drift.Value(vibe.duration),
@@ -159,40 +189,22 @@ class RestoreService {
                 mood: drift.Value(vibe.mood),
                 sentimentScore: drift.Value(vibe.sentimentScore),
                 sentimentMagnitude: drift.Value(vibe.sentimentMagnitude),
-                processingStatus: drift.Value(vibe.processingStatus ?? 'completed'),
-                createdAt: drift.Value(vibe.createdAt.toDate()),
+                processingStatus: drift.Value(
+                  vibe.processingStatus ?? 'completed',
+                ),
                 processedAt: drift.Value(vibe.processedAt),
                 lastSyncedAt: drift.Value(DateTime.now()),
                 isPendingUpload: const drift.Value(false),
-                isPendingDelete: const drift.Value(false),
                 isSynced: const drift.Value(true),
                 syncRetryCount: const drift.Value(0),
-                lastSyncAttempt: const drift.Value.absent(),
-                localAudioPath: drift.Value(localAudioPath),
-                isAudioDownloaded: drift.Value(isAudioDownloaded),
+                localAudioPath: drift.Value(
+                  localAudioPath ?? existingVibe.localAudioPath,
+                ),
+                isAudioDownloaded: drift.Value(
+                  isAudioDownloaded || existingVibe.isAudioDownloaded,
+                ),
               ),
             );
-          } else {
-            // Update existing vibe with cloud data
-            await (_database.update(_database.vibes)
-                  ..where((t) => t.id.equals(vibe.id)))
-                .write(VibesCompanion(
-              audioPath: drift.Value(vibe.audioPath),
-              fileName: drift.Value(vibe.fileName),
-              duration: drift.Value(vibe.duration),
-              transcription: drift.Value(vibe.transcription),
-              mood: drift.Value(vibe.mood),
-              sentimentScore: drift.Value(vibe.sentimentScore),
-              sentimentMagnitude: drift.Value(vibe.sentimentMagnitude),
-              processingStatus: drift.Value(vibe.processingStatus ?? 'completed'),
-              processedAt: drift.Value(vibe.processedAt),
-              lastSyncedAt: drift.Value(DateTime.now()),
-              isPendingUpload: const drift.Value(false),
-              isSynced: const drift.Value(true),
-              syncRetryCount: const drift.Value(0),
-              localAudioPath: drift.Value(localAudioPath ?? existingVibe.localAudioPath),
-              isAudioDownloaded: drift.Value(isAudioDownloaded || existingVibe.isAudioDownloaded),
-            ));
           }
 
           vibesRestored++;
@@ -255,9 +267,7 @@ class RestoreService {
       final response = await _apiClient.dio.download(
         audioUrl,
         localPath,
-        options: Options(
-          receiveTimeout: const Duration(minutes: 5),
-        ),
+        options: Options(receiveTimeout: const Duration(minutes: 5)),
       );
 
       if (response.statusCode == 200) {
@@ -299,9 +309,4 @@ class RestoreProgress {
 }
 
 /// Status of restore operation
-enum RestoreStatus {
-  fetchingVibes,
-  restoringVibes,
-  completed,
-  error,
-}
+enum RestoreStatus { fetchingVibes, restoringVibes, completed, error }

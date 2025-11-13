@@ -124,7 +124,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
     _hapticService.light();
 
     try {
-      final success = await _purchaseService.purchaseProduct(_selectedProductId!);
+      final success = await _purchaseService.purchaseProduct(
+        _selectedProductId!,
+      );
       if (!success) {
         setState(() => _isPurchasing = false);
         if (mounted) {
@@ -154,12 +156,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
         _hapticService.success();
 
         if (mounted) {
-          SnackBarUtils.success(context, result['message'] ?? 'Purchases restored');
+          SnackBarUtils.success(
+            context,
+            result['message'] ?? 'Purchases restored',
+          );
           Navigator.of(context).pop(true);
         }
       } else {
         if (mounted) {
-          SnackBarUtils.info(context, result['message'] ?? 'No purchases to restore');
+          SnackBarUtils.info(
+            context,
+            result['message'] ?? 'No purchases to restore',
+          );
         }
       }
     } catch (e) {
@@ -185,8 +193,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildErrorState()
-              : _buildPaywallContent(),
+          ? _buildErrorState()
+          : _buildPaywallContent(),
     );
   }
 
@@ -226,10 +234,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           // Header
           const Text(
             'Unlock Premium Features',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
@@ -281,12 +286,36 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final primaryColor = AppColors.getPrimary(isDark);
 
     final features = [
-      {'icon': Icons.cloud_outlined, 'title': 'Unlimited Cloud Storage', 'subtitle': 'Never lose a vibe'},
-      {'icon': Icons.mic_outlined, 'title': 'Extended Recording', 'subtitle': 'Up to 60 minutes per vibe'},
-      {'icon': Icons.insights_outlined, 'title': 'Advanced Insights', 'subtitle': 'Mood trends & emotional patterns'},
-      {'icon': Icons.psychology_outlined, 'title': 'AI Journaling Assistant', 'subtitle': 'Personalized prompts & feedback'},
-      {'icon': Icons.lock_outlined, 'title': 'Biometric Lock', 'subtitle': 'Keep your journal private'},
-      {'icon': Icons.block_outlined, 'title': 'Ad-Free Experience', 'subtitle': 'Uninterrupted journaling'},
+      {
+        'icon': Icons.cloud_outlined,
+        'title': 'Unlimited Cloud Storage',
+        'subtitle': 'Never lose a vibe',
+      },
+      {
+        'icon': Icons.mic_outlined,
+        'title': 'Extended Recording',
+        'subtitle': 'Up to 60 minutes per vibe',
+      },
+      {
+        'icon': Icons.insights_outlined,
+        'title': 'Advanced Insights',
+        'subtitle': 'Mood trends & emotional patterns',
+      },
+      {
+        'icon': Icons.psychology_outlined,
+        'title': 'AI Journaling Assistant',
+        'subtitle': 'Personalized prompts & feedback',
+      },
+      {
+        'icon': Icons.lock_outlined,
+        'title': 'Biometric Lock',
+        'subtitle': 'Keep your journal private',
+      },
+      {
+        'icon': Icons.block_outlined,
+        'title': 'Ad-Free Experience',
+        'subtitle': 'Uninterrupted journaling',
+      },
     ];
 
     return Column(
@@ -298,7 +327,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -384,7 +413,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? primaryColor.withOpacity(0.1)
+              ? primaryColor.withValues(alpha: 0.1)
               : surfaceColor,
           border: Border.all(
             color: isSelected ? primaryColor : Colors.transparent,
@@ -426,7 +455,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                               decoration: BoxDecoration(
                                 color: popular
                                     ? primaryColor
-                                    : primaryColor.withOpacity(0.2),
+                                    : primaryColor.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -465,7 +494,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [primaryColor, primaryColor.withOpacity(0.7)],
+                      colors: [
+                        primaryColor,
+                        primaryColor.withValues(alpha: 0.7),
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -495,9 +527,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0,
       ),
       child: _isPurchasing
@@ -511,10 +541,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             )
           : const Text(
               'Start Free Trial',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
     );
   }

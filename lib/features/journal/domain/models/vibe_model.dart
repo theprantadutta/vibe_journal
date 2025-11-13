@@ -13,7 +13,8 @@ class VibeModel {
   final String mood; // 'positive', 'negative', 'neutral', 'unknown'
   final double? sentimentScore;
   final double? sentimentMagnitude;
-  final String? processingStatus; // 'pending', 'processing', 'completed', 'failed'
+  final String?
+  processingStatus; // 'pending', 'processing', 'completed', 'failed'
   final DateTime? processedAt;
   final String? audioUrl; // Pre-signed URL for playback
 
@@ -63,7 +64,9 @@ class VibeModel {
       sentimentMagnitude: (data['sentimentMagnitude'] as num?)?.toDouble(),
       processingStatus: data['processingStatus'] as String?,
       processedAt: null,
-      audioUrl: data['audioPath'] as String?, // In Firestore, audioPath is the download URL
+      audioUrl:
+          data['audioPath']
+              as String?, // In Firestore, audioPath is the download URL
     );
   }
 

@@ -15,7 +15,10 @@ class ApiInterceptor extends Interceptor {
   static const String _refreshTokenKey = 'refresh_token';
 
   @override
-  Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     if (ApiConfig.enableLogging) {
       // ignore: avoid_print
       print('🌐 API Request: ${options.method} ${options.path}');
@@ -41,7 +44,9 @@ class ApiInterceptor extends Interceptor {
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (ApiConfig.enableLogging) {
       // ignore: avoid_print
-      print('✅ API Response: ${response.statusCode} ${response.requestOptions.path}');
+      print(
+        '✅ API Response: ${response.statusCode} ${response.requestOptions.path}',
+      );
     }
     return handler.next(response);
   }
@@ -50,7 +55,9 @@ class ApiInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (ApiConfig.enableLogging) {
       // ignore: avoid_print
-      print('❌ API Error: ${err.response?.statusCode} ${err.requestOptions.path}');
+      print(
+        '❌ API Error: ${err.response?.statusCode} ${err.requestOptions.path}',
+      );
       // ignore: avoid_print
       print('   Message: ${err.message}');
     }
@@ -132,10 +139,7 @@ class ApiInterceptor extends Interceptor {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return ApiError(
-          message: ApiErrorMessages.timeout,
-          statusCode: null,
-        );
+        return ApiError(message: ApiErrorMessages.timeout, statusCode: null);
 
       case DioExceptionType.connectionError:
         return ApiError(
@@ -147,10 +151,7 @@ class ApiInterceptor extends Interceptor {
         return _handleBadResponse(error.response);
 
       case DioExceptionType.cancel:
-        return ApiError(
-          message: 'Request cancelled',
-          statusCode: null,
-        );
+        return ApiError(message: 'Request cancelled', statusCode: null);
 
       default:
         return ApiError(
@@ -210,10 +211,7 @@ class ApiInterceptor extends Interceptor {
           statusCode: 403,
         );
       case 404:
-        return ApiError(
-          message: ApiErrorMessages.notFound,
-          statusCode: 404,
-        );
+        return ApiError(message: ApiErrorMessages.notFound, statusCode: 404);
       case 413:
         return ApiError(
           message: 'File too large. Maximum size is 100MB.',
@@ -227,10 +225,7 @@ class ApiInterceptor extends Interceptor {
           statusCode: statusCode,
         );
       default:
-        return ApiError(
-          message: message,
-          statusCode: statusCode,
-        );
+        return ApiError(message: message, statusCode: statusCode);
     }
   }
 

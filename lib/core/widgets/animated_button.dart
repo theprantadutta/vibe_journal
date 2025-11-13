@@ -24,7 +24,7 @@ class AnimatedButton extends StatefulWidget {
   final Gradient? gradient;
 
   const AnimatedButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.child,
     this.backgroundColor,
@@ -40,7 +40,7 @@ class AnimatedButton extends StatefulWidget {
     this.animationDuration = AppAnimations.buttonPress,
     this.border,
     this.gradient,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedButton> createState() => _AnimatedButtonState();
@@ -62,15 +62,13 @@ class _AnimatedButtonState extends State<AnimatedButton>
       duration: widget.animationDuration,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: widget.pressedScale,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppAnimations.buttonCurve,
-      ),
-    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.pressedScale)
+        .animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: AppAnimations.buttonCurve,
+          ),
+        );
   }
 
   @override
@@ -122,7 +120,8 @@ class _AnimatedButtonState extends State<AnimatedButton>
         child: Container(
           width: widget.width,
           height: widget.height,
-          padding: widget.padding ??
+          padding:
+              widget.padding ??
               const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(
             color: widget.gradient == null
@@ -165,7 +164,7 @@ class AnimatedTextButton extends StatefulWidget {
   final double pressedScale;
 
   const AnimatedTextButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.child,
     this.foregroundColor,
@@ -173,7 +172,7 @@ class AnimatedTextButton extends StatefulWidget {
     this.enableHaptic = true,
     this.enableSound = false,
     this.pressedScale = AppAnimations.pressedScale,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedTextButton> createState() => _AnimatedTextButtonState();
@@ -195,15 +194,13 @@ class _AnimatedTextButtonState extends State<AnimatedTextButton>
       duration: AppAnimations.buttonPress,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: widget.pressedScale,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppAnimations.buttonCurve,
-      ),
-    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.pressedScale)
+        .animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: AppAnimations.buttonCurve,
+          ),
+        );
   }
 
   @override
@@ -250,7 +247,8 @@ class _AnimatedTextButtonState extends State<AnimatedTextButton>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Padding(
-          padding: widget.padding ??
+          padding:
+              widget.padding ??
               const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: DefaultTextStyle(
             style: TextStyle(
@@ -277,7 +275,7 @@ class AnimatedIconButton extends StatefulWidget {
   final EdgeInsetsGeometry? padding;
 
   const AnimatedIconButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.icon,
     this.color,
@@ -286,7 +284,7 @@ class AnimatedIconButton extends StatefulWidget {
     this.enableSound = false,
     this.pressedScale = AppAnimations.pressedScale,
     this.padding,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedIconButton> createState() => _AnimatedIconButtonState();
@@ -308,15 +306,13 @@ class _AnimatedIconButtonState extends State<AnimatedIconButton>
       duration: AppAnimations.buttonPress,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: widget.pressedScale,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppAnimations.buttonCurve,
-      ),
-    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.pressedScale)
+        .animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: AppAnimations.buttonCurve,
+          ),
+        );
   }
 
   @override
@@ -363,10 +359,7 @@ class _AnimatedIconButtonState extends State<AnimatedIconButton>
         child: Padding(
           padding: widget.padding ?? const EdgeInsets.all(8.0),
           child: IconTheme(
-            data: IconThemeData(
-              color: widget.color,
-              size: widget.size ?? 24,
-            ),
+            data: IconThemeData(color: widget.color, size: widget.size ?? 24),
             child: widget.icon,
           ),
         ),

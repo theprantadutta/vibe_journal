@@ -34,9 +34,7 @@ class AuthRepository {
       // Send to backend for verification and user sync
       final response = await _apiClient.post(
         ApiEndpoints.authVerify,
-        data: {
-          'firebase_token': idToken,
-        },
+        data: {'firebase_token': idToken},
       );
 
       if (_apiClient.isSuccessful(response)) {
@@ -44,8 +42,8 @@ class AuthRepository {
         // User is now synced to backend database
         return ApiResponse.success(idToken);
       } else {
-        final errorMsg = _apiClient.getErrorMessage(response) ??
-            'Failed to verify token';
+        final errorMsg =
+            _apiClient.getErrorMessage(response) ?? 'Failed to verify token';
         return ApiResponse.error(errorMsg, statusCode: response.statusCode);
       }
     } on DioException catch (e) {
@@ -62,10 +60,7 @@ class AuthRepository {
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
-      return ApiResponse.error(
-        'Unexpected error: $e',
-        statusCode: 500,
-      );
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
     }
   }
 

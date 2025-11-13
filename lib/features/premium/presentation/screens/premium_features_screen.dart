@@ -25,37 +25,43 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
     {
       'icon': Icons.cloud_done_rounded,
       'title': 'Unlimited Cloud Storage',
-      'description': 'Save unlimited voice vibes to the cloud, never worry about running out of space',
+      'description':
+          'Save unlimited voice vibes to the cloud, never worry about running out of space',
       'gradient': [Color(0xFF667eea), Color(0xFF764ba2)],
     },
     {
       'icon': Icons.timer_outlined,
       'title': 'Extended Recording Time',
-      'description': 'Record vibes up to 60 minutes long, perfect for deep journaling sessions',
+      'description':
+          'Record vibes up to 60 minutes long, perfect for deep journaling sessions',
       'gradient': [Color(0xFFf093fb), Color(0xFff5576c)],
     },
     {
       'icon': Icons.auto_awesome_rounded,
       'title': 'AI Assistant Access',
-      'description': 'Get personalized insights, journaling prompts, and feedback from your AI companion',
+      'description':
+          'Get personalized insights, journaling prompts, and feedback from your AI companion',
       'gradient': [Color(0xFF4facfe), Color(0xFF00f2fe)],
     },
     {
       'icon': Icons.trending_up_rounded,
       'title': 'Advanced Trend Charts',
-      'description': 'Visualize your mood patterns over time with beautiful interactive charts',
+      'description':
+          'Visualize your mood patterns over time with beautiful interactive charts',
       'gradient': [Color(0xFF43e97b), Color(0xFF38f9d7)],
     },
     {
       'icon': Icons.playlist_play_rounded,
       'title': 'Future Me Mashup',
-      'description': 'Create audio playlists of your recent vibes to reflect on your journey',
+      'description':
+          'Create audio playlists of your recent vibes to reflect on your journey',
       'gradient': [Color(0xFFfa709a), Color(0xFFfee140)],
     },
     {
       'icon': Icons.lock_person_rounded,
       'title': 'Biometric Lock',
-      'description': 'Protect your private thoughts with fingerprint or face recognition',
+      'description':
+          'Protect your private thoughts with fingerprint or face recognition',
       'gradient': [Color(0xFF30cfd0), Color(0xFF330867)],
     },
   ];
@@ -67,48 +73,39 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
     final isPremium = _userService.isPremium;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Premium Features'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Premium Features'), elevation: 0),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           // Header section
           SliverToBoxAdapter(
-            child: _buildHeader(isDark, isPremium)
-                .animate()
-                .fadeIn(duration: 400.ms)
-                .slideY(begin: -0.1, end: 0),
+            child: _buildHeader(
+              isDark,
+              isPremium,
+            ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1, end: 0),
           ),
 
           // Feature cards
           SliverPadding(
             padding: const EdgeInsets.all(AppSpacing.md),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final feature = _premiumFeatures[index];
-                  return _buildFeatureCard(
-                    feature: feature,
-                    isDark: isDark,
-                    index: index,
-                  )
-                      .animate()
-                      .fadeIn(
-                        delay: (100 * index).ms,
-                        duration: 400.ms,
-                      )
-                      .slideX(
-                        begin: 0.2,
-                        end: 0,
-                        delay: (100 * index).ms,
-                        duration: 400.ms,
-                        curve: AppAnimations.emphasized,
-                      );
-                },
-                childCount: _premiumFeatures.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final feature = _premiumFeatures[index];
+                return _buildFeatureCard(
+                      feature: feature,
+                      isDark: isDark,
+                      index: index,
+                    )
+                    .animate()
+                    .fadeIn(delay: (100 * index).ms, duration: 400.ms)
+                    .slideX(
+                      begin: 0.2,
+                      end: 0,
+                      delay: (100 * index).ms,
+                      duration: 400.ms,
+                      curve: AppAnimations.emphasized,
+                    );
+              }, childCount: _premiumFeatures.length),
             ),
           ),
 
@@ -122,9 +119,7 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
             ),
 
           // Bottom spacing
-          const SliverToBoxAdapter(
-            child: SizedBox(height: AppSpacing.xl),
-          ),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
         ],
       ),
     );
@@ -145,8 +140,9 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         boxShadow: [
           BoxShadow(
-            color: (isPremium ? Color(0xFF11998e) : AppColors.getPrimary(isDark))
-                .withValues(alpha: 0.3),
+            color:
+                (isPremium ? Color(0xFF11998e) : AppColors.getPrimary(isDark))
+                    .withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -155,7 +151,9 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
       child: Column(
         children: [
           Icon(
-            isPremium ? Icons.verified_rounded : Icons.workspace_premium_rounded,
+            isPremium
+                ? Icons.verified_rounded
+                : Icons.workspace_premium_rounded,
             size: 64,
             color: Colors.white,
           ),
@@ -294,9 +292,9 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
         child: InkWell(
           onTap: () {
             _hapticService.medium();
-            Navigator.of(context).push(
-              SlidePageRoute(page: const PaywallScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(SlidePageRoute(page: const PaywallScreen()));
           },
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           child: Container(

@@ -3,14 +3,16 @@
 /// Centralized API configuration for different environments
 class ApiConfig {
   // Base URLs
-  static const String productionBaseUrl = 'https://pranta.vps.webdock.cloud/vibejournal';
+  static const String productionBaseUrl =
+      'https://pranta.vps.webdock.cloud/vibejournal';
   static const String developmentBaseUrl = 'http://localhost:8000';
 
   // Current environment (change this for different builds)
   static const bool isProduction = true;
 
   // Get current base URL based on environment
-  static String get baseUrl => isProduction ? productionBaseUrl : developmentBaseUrl;
+  static String get baseUrl =>
+      isProduction ? productionBaseUrl : developmentBaseUrl;
 
   // API version prefix
   static const String apiPrefix = '/api/v1';

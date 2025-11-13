@@ -16,7 +16,8 @@ class UserModel {
   // Subscription fields
   final bool isPremium;
   final String? subscriptionType; // monthly, yearly, lifetime
-  final String subscriptionStatus; // free, active, expired, grace_period, canceled
+  final String
+  subscriptionStatus; // free, active, expired, grace_period, canceled
 
   UserModel({
     required this.uid,
@@ -42,7 +43,8 @@ class UserModel {
       plan: data['plan'] as String? ?? 'free',
       cloudVibeCount: data['cloudVibeCount'] as int? ?? 0,
       maxCloudVibes: data['maxCloudVibes'] as int? ?? 75,
-      maxRecordingDurationMinutes: data['maxRecordingDurationMinutes'] as int? ?? 5,
+      maxRecordingDurationMinutes:
+          data['maxRecordingDurationMinutes'] as int? ?? 5,
       createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(),
       isPremium: (data['plan'] as String?) == 'premium',
       subscriptionType: data['subscriptionType'] as String?,
@@ -60,7 +62,8 @@ class UserModel {
       plan: json['plan_name'] as String? ?? 'free',
       cloudVibeCount: json['cloud_vibe_count'] as int? ?? 0,
       maxCloudVibes: json['max_cloud_vibes'] as int? ?? 75,
-      maxRecordingDurationMinutes: json['max_recording_duration_minutes'] as int? ?? 5,
+      maxRecordingDurationMinutes:
+          json['max_recording_duration_minutes'] as int? ?? 5,
       createdAt: createdAt != null
           ? Timestamp.fromDate(DateTime.parse(createdAt))
           : Timestamp.now(),

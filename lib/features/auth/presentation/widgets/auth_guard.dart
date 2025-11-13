@@ -50,7 +50,9 @@ class AuthGuard extends StatelessWidget {
           return Scaffold(
             backgroundColor: AppColors.getBackground(true),
             body: Center(
-              child: CircularProgressIndicator(color: AppColors.getSecondary(true)),
+              child: CircularProgressIndicator(
+                color: AppColors.getSecondary(true),
+              ),
             ),
           );
         }
@@ -71,7 +73,9 @@ class AuthGuard extends StatelessWidget {
               return Scaffold(
                 backgroundColor: AppColors.getBackground(true),
                 body: Center(
-                  child: CircularProgressIndicator(color: AppColors.getSecondary(true)),
+                  child: CircularProgressIndicator(
+                    color: AppColors.getSecondary(true),
+                  ),
                 ),
               );
             }
@@ -80,12 +84,15 @@ class AuthGuard extends StatelessWidget {
               return FutureBuilder<void>(
                 future: _ensureTokenStored(snapshot.data!),
                 builder: (context, tokenSnapshot) {
-                  if (tokenSnapshot.connectionState == ConnectionState.waiting) {
+                  if (tokenSnapshot.connectionState ==
+                      ConnectionState.waiting) {
                     // Show loading while storing token
                     return Scaffold(
                       backgroundColor: AppColors.getBackground(true),
                       body: Center(
-                        child: CircularProgressIndicator(color: AppColors.getSecondary(true)),
+                        child: CircularProgressIndicator(
+                          color: AppColors.getSecondary(true),
+                        ),
                       ),
                     );
                   }

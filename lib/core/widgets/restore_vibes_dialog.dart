@@ -9,10 +9,7 @@ import '../services/restore_service.dart';
 class RestoreVibesDialog extends StatelessWidget {
   final Stream<RestoreProgress> progressStream;
 
-  const RestoreVibesDialog({
-    super.key,
-    required this.progressStream,
-  });
+  const RestoreVibesDialog({super.key, required this.progressStream});
 
   /// Show the restore dialog
   static Future<void> show(
@@ -23,9 +20,7 @@ class RestoreVibesDialog extends StatelessWidget {
       context: context,
       barrierDismissible: false, // Cannot dismiss until complete
       barrierColor: Colors.black87,
-      builder: (context) => RestoreVibesDialog(
-        progressStream: progressStream,
-      ),
+      builder: (context) => RestoreVibesDialog(progressStream: progressStream),
     );
   }
 
@@ -43,8 +38,8 @@ class RestoreVibesDialog extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppColors.getPrimary(isDark).withOpacity(0.1),
-                AppColors.getSecondary(isDark).withOpacity(0.1),
+                AppColors.getPrimary(isDark).withValues(alpha: 0.1),
+                AppColors.getSecondary(isDark).withValues(alpha: 0.1),
               ],
             ),
           ),
@@ -102,9 +97,7 @@ class RestoreVibesDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          CircularProgressIndicator(
-            color: AppColors.getPrimary(isDark),
-          ),
+          CircularProgressIndicator(color: AppColors.getPrimary(isDark)),
         ],
       ),
     );
@@ -135,9 +128,7 @@ class RestoreVibesDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          CircularProgressIndicator(
-            color: AppColors.getPrimary(isDark),
-          ),
+          CircularProgressIndicator(color: AppColors.getPrimary(isDark)),
         ],
       ),
     );
@@ -213,7 +204,7 @@ class RestoreVibesDialog extends StatelessWidget {
                 vertical: AppSpacing.sm,
               ),
               decoration: BoxDecoration(
-                color: AppColors.getPrimary(isDark).withOpacity(0.1),
+                color: AppColors.getPrimary(isDark).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -247,18 +238,18 @@ class RestoreVibesDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.green.withOpacity(0.2),
-            ),
-            child: const Icon(
-              Icons.check_circle_rounded,
-              size: 48,
-              color: Colors.green,
-            ),
-          )
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green.withValues(alpha: 0.2),
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  size: 48,
+                  color: Colors.green,
+                ),
+              )
               .animate()
               .scale(duration: 400.ms, curve: Curves.elasticOut)
               .fadeIn(),
@@ -309,7 +300,7 @@ class RestoreVibesDialog extends StatelessWidget {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.red.withOpacity(0.2),
+              color: Colors.red.withValues(alpha: 0.2),
             ),
             child: const Icon(
               Icons.error_outline_rounded,
@@ -359,10 +350,7 @@ class RestoreVibesDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildDialogCard({
-    required bool isDark,
-    required Widget child,
-  }) {
+  Widget _buildDialogCard({required bool isDark, required Widget child}) {
     return Container(
       margin: const EdgeInsets.all(AppSpacing.xl),
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -371,7 +359,7 @@ class RestoreVibesDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 24,
             spreadRadius: 0,
             offset: const Offset(0, 8),
@@ -407,7 +395,10 @@ class RestoreVibesDialog extends StatelessWidget {
     if (isAnimating) {
       return icon
           .animate(onPlay: (controller) => controller.repeat())
-          .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.3))
+          .shimmer(
+            duration: 2000.ms,
+            color: Colors.white.withValues(alpha: 0.3),
+          )
           .then()
           .shake(duration: 500.ms, hz: 2, offset: const Offset(2, 0));
     }

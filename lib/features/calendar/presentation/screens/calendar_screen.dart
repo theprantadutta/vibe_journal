@@ -288,13 +288,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       color: AppColors.getTextSecondary(isDark),
                     ),
                     weekendTextStyle: textTheme.bodyMedium!.copyWith(
-                      color: AppColors.getSecondary(isDark).withValues(alpha: 0.8),
+                      color: AppColors.getSecondary(
+                        isDark,
+                      ).withValues(alpha: 0.8),
                     ),
                     outsideTextStyle: textTheme.bodyMedium!.copyWith(
                       color: AppColors.getTextDisabled(isDark),
                     ),
                     todayDecoration: BoxDecoration(
-                      color: AppColors.getSecondary(isDark).withValues(alpha: 0.3),
+                      color: AppColors.getSecondary(
+                        isDark,
+                      ).withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                     ),
                     todayTextStyle: textTheme.bodyMedium!.copyWith(
@@ -315,7 +319,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       final vibes = _getVibesForDay(day);
                       if (vibes.isNotEmpty) {
                         final dominantMood = _getDominantMoodForDay(vibes);
-                        final moodColor = AppColors.getMoodColor(dominantMood, isDark);
+                        final moodColor = AppColors.getMoodColor(
+                          dominantMood,
+                          isDark,
+                        );
                         return Container(
                           decoration: BoxDecoration(
                             color: moodColor.withValues(alpha: 0.25),
@@ -422,65 +429,79 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             }
 
                             return AnimatedCard(
-                              margin: EdgeInsets.symmetric(vertical: AppSpacing.marginXs + 2),
-                              color: isActive
-                                  ? AppColors.getPrimary(isDark).withValues(alpha: 0.1)
-                                  : AppColors.getSurface(isDark),
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                              border: Border.all(
-                                color: isActive
-                                    ? AppColors.getPrimary(isDark).withValues(alpha: 0.5)
-                                    : Colors.transparent,
-                                width: 1,
-                              ),
-                              padding: EdgeInsets.zero,
-                              onTap: () {
-                                _hapticService.light();
-                                // Navigate to the Detail Screen
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        VibeDetailScreen(vibe: vibe),
+                                  margin: EdgeInsets.symmetric(
+                                    vertical: AppSpacing.marginXs + 2,
                                   ),
+                                  color: isActive
+                                      ? AppColors.getPrimary(
+                                          isDark,
+                                        ).withValues(alpha: 0.1)
+                                      : AppColors.getSurface(isDark),
+                                  borderRadius: BorderRadius.circular(
+                                    AppSpacing.radiusMd,
+                                  ),
+                                  border: Border.all(
+                                    color: isActive
+                                        ? AppColors.getPrimary(
+                                            isDark,
+                                          ).withValues(alpha: 0.5)
+                                        : Colors.transparent,
+                                    width: 1,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  onTap: () {
+                                    _hapticService.light();
+                                    // Navigate to the Detail Screen
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            VibeDetailScreen(vibe: vibe),
+                                      ),
+                                    );
+                                  },
+                                  child: ListTile(
+                                    leading: Icon(
+                                      isPlaying
+                                          ? Icons.graphic_eq_rounded
+                                          : Icons.bubble_chart_rounded,
+                                      color: AppColors.getMoodColor(
+                                        vibe.mood,
+                                        isDark,
+                                      ),
+                                      size: 30,
+                                    ),
+                                    title: Text(
+                                      DateFormat(
+                                        'hh:mm a',
+                                      ).format(vibe.createdAt.toDate()),
+                                      style: textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      vibe.transcription.isEmpty
+                                          ? 'Duration: ${_formatDuration(vibe.duration)}'
+                                          : '"${vibe.transcription}"',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: AppColors.getTextHint(isDark),
+                                      ),
+                                    ),
+                                    trailing: trailingWidget,
+                                  ),
+                                )
+                                .animate()
+                                .fadeIn(
+                                  duration: AppAnimations.fast,
+                                  delay: AppAnimations.staggerDelayFor(index),
+                                )
+                                .slideY(
+                                  begin: 0.2,
+                                  end: 0,
+                                  duration: AppAnimations.fast,
+                                  delay: AppAnimations.staggerDelayFor(index),
                                 );
-                              },
-                              child: ListTile(
-                                leading: Icon(
-                                  isPlaying
-                                      ? Icons.graphic_eq_rounded
-                                      : Icons.bubble_chart_rounded,
-                                  color: AppColors.getMoodColor(vibe.mood, isDark),
-                                  size: 30,
-                                ),
-                                title: Text(
-                                  DateFormat(
-                                    'hh:mm a',
-                                  ).format(vibe.createdAt.toDate()),
-                                  style: textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  vibe.transcription.isEmpty
-                                      ? 'Duration: ${_formatDuration(vibe.duration)}'
-                                      : '"${vibe.transcription}"',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: AppColors.getTextHint(isDark),
-                                  ),
-                                ),
-                                trailing: trailingWidget,
-                              ),
-                            ).animate().fadeIn(
-                              duration: AppAnimations.fast,
-                              delay: AppAnimations.staggerDelayFor(index),
-                            ).slideY(
-                              begin: 0.2,
-                              end: 0,
-                              duration: AppAnimations.fast,
-                              delay: AppAnimations.staggerDelayFor(index),
-                            );
                           },
                         ),
                 ),

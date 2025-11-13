@@ -84,7 +84,9 @@ class UserService {
     );
 
     if (kDebugMode) {
-      print("✅ Plan details updated: ${user.plan} (${user.maxCloudVibes} vibes max)");
+      print(
+        "✅ Plan details updated: ${user.plan} (${user.maxCloudVibes} vibes max)",
+      );
     }
   }
 

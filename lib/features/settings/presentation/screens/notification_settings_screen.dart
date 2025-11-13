@@ -221,7 +221,10 @@ class _NotificationSettingsScreenState
     return ListTile(
       leading: Icon(icon, color: AppColors.getTextSecondary(isDark)),
       title: Text(title),
-      subtitle: Text(subtitle, style: TextStyle(color: AppColors.getTextHint(isDark))),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: AppColors.getTextHint(isDark)),
+      ),
       // The onTap of the whole tile will also toggle the switch
       onTap: isUpdating ? null : () => onChanged(!value),
       trailing: isUpdating
