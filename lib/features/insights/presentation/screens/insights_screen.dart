@@ -406,7 +406,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
                 value,
                 style: Theme.of(
                   context,
-                ).textTheme.headlineMedium?.copyWith(color: Colors.white),
+                ).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                ),
               ),
               Text(
                 title,
