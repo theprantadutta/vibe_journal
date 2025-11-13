@@ -199,62 +199,51 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
     final theme = Theme.of(context);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: AppColors.getSurface(isDark),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Icon with gradient background
           Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: feature['gradient'] as List<Color>,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               feature['icon'] as IconData,
               color: Colors.white,
-              size: 28,
+              size: 22,
             ),
           ),
           const SizedBox(width: AppSpacing.md),
 
-          // Text content
+          // Title only
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  feature['title'] as String,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.getTextPrimary(isDark),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  feature['description'] as String,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.getTextSecondary(isDark),
-                    height: 1.5,
-                  ),
-                ),
-              ],
+            child: Text(
+              feature['title'] as String,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.getTextPrimary(isDark),
+              ),
             ),
           ),
         ],
