@@ -75,6 +75,12 @@ class UserModel {
 
   /// Create UserModel from Drift database User entity
   factory UserModel.fromDrift(User user) {
+    // Determine premium status from subscription info (matching backend logic)
+    final isPremium = (user.subscriptionType == 'lifetime' &&
+            user.subscriptionStatus == 'active') ||
+        (user.subscriptionStatus == 'active' ||
+            user.subscriptionStatus == 'grace_period');
+
     return UserModel(
       uid: user.uid,
       email: user.email,
@@ -82,11 +88,11 @@ class UserModel {
       plan: user.plan,
       cloudVibeCount: user.cloudVibeCount,
       maxCloudVibes: user.maxCloudVibes,
-      maxRecordingDurationMinutes: user.maxRecordingDurationMinutes ?? 5,
+      maxRecordingDurationMinutes: user.maxRecordingDurationMinutes,
       createdAt: Timestamp.fromDate(user.createdAt),
-      isPremium: user.plan == 'premium',
+      isPremium: isPremium,
       subscriptionType: user.subscriptionType,
-      subscriptionStatus: user.subscriptionStatus ?? 'free',
+      subscriptionStatus: user.subscriptionStatus,
     );
   }
 }

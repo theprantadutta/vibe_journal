@@ -81,6 +81,9 @@ class UserRepository {
               plan: drift.Value(userModel.plan),
               cloudVibeCount: drift.Value(userModel.cloudVibeCount),
               maxCloudVibes: drift.Value(userModel.maxCloudVibes),
+              maxRecordingDurationMinutes: drift.Value(userModel.maxRecordingDurationMinutes),
+              subscriptionType: drift.Value(userModel.subscriptionType),
+              subscriptionStatus: drift.Value(userModel.subscriptionStatus),
               notificationPreferences: drift.Value(
                 _serializeNotificationPreferences(userModel),
               ),
