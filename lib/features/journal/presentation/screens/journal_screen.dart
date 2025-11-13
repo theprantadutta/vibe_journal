@@ -320,7 +320,8 @@ class _JournalScreenState extends State<JournalScreen>
         }
 
         _resetToReadyState();
-        _fetchRecentVibes();
+        // Fetch from local storage only (no API call needed)
+        _refreshLocalVibes();
       }
     } catch (e) {
       if (mounted) {
@@ -395,6 +396,20 @@ class _JournalScreenState extends State<JournalScreen>
       if (mounted) setState(() => _showUpgradeBanner = true);
     } else {
       if (mounted) setState(() => _showUpgradeBanner = false);
+    }
+  }
+
+  /// Refresh vibes from local storage only (no API call)
+  Future<void> _refreshLocalVibes() async {
+    try {
+      final response = await _vibeRepository.getLocalVibes();
+      if (response.isSuccess && response.data != null && mounted) {
+        setState(() {
+          _recentVibes = response.data!.take(5).toList();
+        });
+      }
+    } catch (e) {
+      // Silent fail - UI will keep showing existing vibes
     }
   }
 
