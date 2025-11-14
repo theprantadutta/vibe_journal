@@ -29,7 +29,7 @@ class VibeRepository {
       final response = await _apiClient.uploadFile(
         ApiEndpoints.vibesUpload,
         audioFile.path,
-        'audio_file', // Field name expected by backend
+        'file', // Field name expected by backend
         onSendProgress: onSendProgress,
       );
 
