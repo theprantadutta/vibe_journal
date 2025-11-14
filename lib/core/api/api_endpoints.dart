@@ -16,7 +16,7 @@ class ApiEndpoints {
   static String usersMeFcmToken(String token) => '/users/me/fcm-tokens/$token';
 
   // Vibes (Journal Entries)
-  static const String vibes = '/vibes';
+  static const String vibes = '/vibes/';
   static const String vibesUpload = '/vibes/upload';
   static String vibe(String id) => '/vibes/$id';
   static String vibeAudio(String id) => '/vibes/$id/audio';
