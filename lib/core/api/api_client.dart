@@ -33,7 +33,7 @@ class ApiClient {
           requestHeader: true,
           requestBody: true,
           responseHeader: false,
-          responseBody: true,
+          responseBody: false, // Disabled: prevents logging binary data (audio files)
           error: true,
           // ignore: avoid_print
           logPrint: (obj) => print(obj),
