@@ -354,6 +354,92 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     return '$minutes:$seconds';
   }
 
+  /// Show delete confirmation dialog
+  Future<void> _showDeleteConfirmation(BuildContext context, bool isDark) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this vibe?'),
+        content: const Text(
+          'This will permanently delete the audio and transcription. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _handleDelete();
+    }
+  }
+
+  /// Handle vibe deletion
+  Future<void> _handleDelete() async {
+    try {
+      // Stop audio player if playing
+      await _player.stop();
+
+      final vibe = _currentVibe;
+
+      // Determine delete strategy based on sync status
+      final ApiResponse<void> response;
+
+      if (vibe.isSynced) {
+        // Online delete - remove from backend and local
+        debugPrint('🗑️ Deleting synced vibe: ${vibe.id}');
+        response = await _vibeRepository.deleteVibe(vibe.id);
+      } else {
+        // Offline delete - mark for deletion and delete local file
+        debugPrint('🗑️ Marking unsynced vibe for deletion: ${vibe.id}');
+        response = await _vibeRepository.markVibeForDeletion(vibe.id);
+      }
+
+      if (!mounted) return;
+
+      if (response.isSuccess) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vibe deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate back to journal screen
+        Navigator.pop(context, true); // Return true to indicate deletion
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: ${response.error}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error deleting vibe: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -364,6 +450,13 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
       appBar: AppBar(
         title: Text(DateFormat('MMMM d, yyyy').format(vibeDate)),
         backgroundColor: AppColors.getSurface(isDark),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Delete vibe',
+            onPressed: () => _showDeleteConfirmation(context, isDark),
+          ),
+        ],
       ),
       body: _userModel == null
           ? const Center(child: CircularProgressIndicator())

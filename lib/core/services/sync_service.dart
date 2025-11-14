@@ -30,6 +30,98 @@ class SyncService {
   bool get isSyncing => _isSyncing;
   DateTime? get lastSyncTime => _lastSyncTime;
 
+  /// Delete vibes marked for deletion from backend (Premium only)
+  ///
+  /// This should be called BEFORE syncing uploads to avoid uploading vibes
+  /// that are marked for deletion.
+  Future<SyncResult> deletePendingVibes() async {
+    // Only premium users can sync deletions
+    if (!_userService.isPremium) {
+      return SyncResult(
+        success: false,
+        message: 'Sync deletions is only available for premium users',
+      );
+    }
+
+    try {
+      // Get all vibes marked for deletion
+      final pendingDeleteVibes = await (_database.select(
+        _database.vibes,
+      )..where((t) => t.isPendingDelete.equals(true))).get();
+
+      if (pendingDeleteVibes.isEmpty) {
+        return SyncResult(
+          success: true,
+          message: 'No vibes to delete',
+          uploadedCount: 0,
+        );
+      }
+
+      int successCount = 0;
+      int failedCount = 0;
+      List<String> errors = [];
+
+      for (final vibe in pendingDeleteVibes) {
+        try {
+          if (kDebugMode) {
+            print('🗑️ Syncing deletion for vibe ${vibe.id}');
+          }
+
+          // Delete from backend
+          final deleteResponse = await _vibeRepository.deleteVibe(vibe.id);
+
+          if (deleteResponse.isSuccess) {
+            // Already deleted from local database by deleteVibe method
+            successCount++;
+            if (kDebugMode) {
+              print('✅ Vibe ${vibe.id} deleted from backend and local');
+            }
+          } else {
+            // If 404, it's already deleted on backend - treat as success
+            if (deleteResponse.statusCode == 404) {
+              // Remove from local database
+              await (_database.delete(
+                _database.vibes,
+              )..where((t) => t.id.equals(vibe.id))).go();
+
+              successCount++;
+              if (kDebugMode) {
+                print('✅ Vibe ${vibe.id} was already deleted on backend');
+              }
+            } else {
+              failedCount++;
+              errors.add('Failed to delete ${vibe.fileName}: ${deleteResponse.error}');
+              if (kDebugMode) {
+                print('❌ Failed to delete vibe ${vibe.id}: ${deleteResponse.error}');
+              }
+            }
+          }
+        } catch (e) {
+          failedCount++;
+          errors.add('Error deleting ${vibe.fileName}: $e');
+          if (kDebugMode) {
+            print('❌ Error deleting vibe ${vibe.id}: $e');
+          }
+        }
+      }
+
+      return SyncResult(
+        success: failedCount == 0,
+        message: failedCount == 0
+            ? 'Successfully deleted $successCount vibes'
+            : 'Deleted $successCount vibes, $failedCount failed',
+        uploadedCount: successCount,
+        failedCount: failedCount,
+        errors: errors,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error in deletePendingVibes: $e');
+      }
+      return SyncResult(success: false, message: 'Failed to sync deletions: $e');
+    }
+  }
+
   /// Sync all pending vibes to cloud (Premium only)
   Future<SyncResult> syncPendingVibes() async {
     if (_isSyncing) {
@@ -47,10 +139,16 @@ class SyncService {
     _isSyncing = true;
 
     try {
-      // Get all vibes pending upload (including those ready for retry)
+      // Sync deletions FIRST to avoid uploading vibes marked for deletion
+      await deletePendingVibes();
+
+      // Get all vibes pending upload (excluding those marked for deletion)
       final allPendingVibes = await (_database.select(
         _database.vibes,
-      )..where((t) => t.isPendingUpload.equals(true))).get();
+      )..where((t) =>
+          t.isPendingUpload.equals(true) &
+          t.isPendingDelete.equals(false)
+      )).get();
 
       // Filter vibes that can be retried (not exceeded max retries and passed retry delay)
       final pendingVibes = allPendingVibes.where((vibe) {

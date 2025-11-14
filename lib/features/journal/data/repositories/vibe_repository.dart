@@ -250,9 +250,30 @@ class VibeRepository {
   /// Delete a vibe
   Future<ApiResponse<void>> deleteVibe(String vibeId) async {
     try {
+      // Get vibe from local database to find audio file path
+      final localVibe = await (_database.select(_database.vibes)
+            ..where((t) => t.id.equals(vibeId)))
+          .getSingleOrNull();
+
+      // Delete from backend
       final response = await _apiClient.delete(ApiEndpoints.vibe(vibeId));
 
-      if (_apiClient.isSuccessful(response)) {
+      // Handle 404 as success (already deleted)
+      if (_apiClient.isSuccessful(response) || response.statusCode == 404) {
+        // Delete local audio file if it exists
+        if (localVibe?.localAudioPath != null) {
+          try {
+            final audioFile = File(localVibe!.localAudioPath!);
+            if (await audioFile.exists()) {
+              await audioFile.delete();
+              debugPrint('🗑️ Deleted local audio file: ${localVibe.localAudioPath}');
+            }
+          } catch (e) {
+            debugPrint('⚠️ Failed to delete local audio file: $e');
+            // Continue with deletion even if file delete fails
+          }
+        }
+
         // Remove from local cache
         await _deleteCachedVibe(vibeId);
 
@@ -433,12 +454,14 @@ class VibeRepository {
   Future<List<VibeModel>> _loadVibesFromCache() async {
     try {
       final cachedVibes =
-          await (_database.select(_database.vibes)..orderBy([
-                (t) => drift.OrderingTerm(
-                  expression: t.createdAt,
-                  mode: drift.OrderingMode.desc,
-                ),
-              ]))
+          await (_database.select(_database.vibes)
+                ..where((t) => t.isPendingDelete.equals(false)) // Exclude deleted vibes
+                ..orderBy([
+                  (t) => drift.OrderingTerm(
+                    expression: t.createdAt,
+                    mode: drift.OrderingMode.desc,
+                  ),
+                ]))
               .get();
 
       return cachedVibes.map((vibe) => VibeModel.fromDrift(vibe)).toList();
@@ -551,6 +574,56 @@ class VibeRepository {
     } catch (e) {
       return ApiResponse.error(
         'Failed to delete vibe locally: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  /// Mark vibe for deletion (for offline delete that will sync later)
+  ///
+  /// This marks the vibe as pending deletion and deletes the local audio file.
+  /// The vibe entry remains in the database for sync tracking.
+  /// When the device goes online, the sync service will delete it from the backend.
+  Future<ApiResponse<void>> markVibeForDeletion(String vibeId) async {
+    try {
+      // Get vibe from local database
+      final localVibe = await (_database.select(_database.vibes)
+            ..where((t) => t.id.equals(vibeId)))
+          .getSingleOrNull();
+
+      if (localVibe == null) {
+        return ApiResponse.error('Vibe not found', statusCode: 404);
+      }
+
+      // Delete local audio file if it exists
+      if (localVibe.localAudioPath != null) {
+        try {
+          final audioFile = File(localVibe.localAudioPath!);
+          if (await audioFile.exists()) {
+            await audioFile.delete();
+            debugPrint('🗑️ Deleted local audio file: ${localVibe.localAudioPath}');
+          }
+        } catch (e) {
+          debugPrint('⚠️ Failed to delete local audio file: $e');
+          // Continue even if file delete fails
+        }
+      }
+
+      // Mark as pending deletion in database
+      await (_database.update(_database.vibes)
+            ..where((t) => t.id.equals(vibeId)))
+          .write(
+        const VibesCompanion(
+          isPendingDelete: drift.Value(true),
+        ),
+      );
+
+      debugPrint('🗑️ Marked vibe for deletion: $vibeId (will sync when online)');
+
+      return ApiResponse.success(null);
+    } catch (e) {
+      return ApiResponse.error(
+        'Failed to mark vibe for deletion: $e',
         statusCode: 500,
       );
     }
