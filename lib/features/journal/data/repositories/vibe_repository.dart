@@ -367,7 +367,7 @@ class VibeRepository {
       });
 
       final response = await _apiClient.dio.post(
-        '/api/v1/vibes/$vibeId/retry-transcription',
+        '/vibes/$vibeId/retry-transcription',
         data: formData,
         onSendProgress: onSendProgress,
       );
