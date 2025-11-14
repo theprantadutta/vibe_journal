@@ -175,10 +175,41 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
         return;
       }
 
-      final response = await _vibeRepository.retryTranscription(
+      // Try retry endpoint first
+      var response = await _vibeRepository.retryTranscription(
         vibeId: _currentVibe.id,
         audioFile: file,
       );
+
+      // If vibe doesn't exist in backend (404), create it first
+      if (response.statusCode == 404) {
+        debugPrint('📤 Vibe not in backend, uploading and creating...');
+
+        // Upload audio file
+        final uploadResponse = await _vibeRepository.uploadAudioFile(file);
+
+        if (!uploadResponse.isSuccess || uploadResponse.data == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to upload audio: ${uploadResponse.error}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Create vibe entry
+        final createResponse = await _vibeRepository.createVibe(
+          id: _currentVibe.id,
+          audioPath: uploadResponse.data!,
+          fileName: _currentVibe.fileName.isNotEmpty ? _currentVibe.fileName : 'audio.flac',
+          durationMs: _currentVibe.duration,
+        );
+
+        response = createResponse;
+      }
 
       if (response.isSuccess && response.data != null) {
         if (mounted) {
@@ -188,7 +219,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Transcription retry started successfully!'),
+              content: Text('Transcription started successfully!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -200,7 +231,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to retry: ${response.error}'),
+              content: Text('Failed to start transcription: ${response.error}'),
               backgroundColor: Colors.red,
             ),
           );
