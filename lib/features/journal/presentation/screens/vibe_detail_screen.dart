@@ -490,6 +490,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     final processingStatus = _currentVibe.processingStatus ?? 'completed';
     final isProcessing = processingStatus == 'pending' || processingStatus == 'processing';
     final isFailed = processingStatus == 'failed';
+    final hasTranscription = _currentVibe.transcription.isNotEmpty;
 
     return AnimatedCard(
       child: Column(
@@ -603,15 +604,58 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
                 ),
               ],
             )
-          else
+          else if (hasTranscription)
             SelectableText(
-              _currentVibe.transcription.isEmpty
-                  ? "No transcription available for this vibe."
-                  : _currentVibe.transcription,
+              _currentVibe.transcription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppColors.getTextSecondary(isDark),
                 height: 1.5,
               ),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppColors.getTextSecondary(isDark),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      "No transcription available for this vibe.",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.getTextSecondary(isDark),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ElevatedButton.icon(
+                  onPressed: _isRetrying ? null : _handleRetryTranscription,
+                  icon: _isRetrying
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: Text(_isRetrying ? "Uploading..." : "Retry Transcription"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.getPrimary(isDark),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                  ),
+                ),
+              ],
             ),
         ],
       ),
