@@ -9,7 +9,6 @@ import 'package:vibe_journal/config/theme/app_colors.dart';
 import 'package:vibe_journal/config/theme/app_spacing.dart';
 import 'package:vibe_journal/config/theme/app_animations.dart';
 import 'package:vibe_journal/core/services/haptic_service.dart';
-import 'package:vibe_journal/core/services/sound_service.dart';
 import 'package:vibe_journal/core/widgets/animated_card.dart';
 import 'package:vibe_journal/core/widgets/animated_button.dart';
 import 'package:vibe_journal/features/journal/domain/models/vibe_model.dart';
@@ -18,6 +17,7 @@ import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
 import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
 
 import '../../../../core/services/user_service.dart';
+import '../../../../core/api/api_response.dart';
 import '../../data/repositories/vibe_repository.dart';
 import '../../../ai_assistant/data/repositories/ai_repository.dart';
 
@@ -50,7 +50,6 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   final _aiRepository = locator<AiRepository>();
 
   final _hapticService = HapticService();
-  final _soundService = SoundService();
 
   // Polling for transcription updates
   Timer? _transcriptionPollTimer;
@@ -137,7 +136,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
                         _currentVibe.audioUrl ??
                         _currentVibe.audioPath;
 
-      if (localPath == null || localPath.isEmpty) {
+      if (localPath.isEmpty) {
         // Show error if no local file
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
