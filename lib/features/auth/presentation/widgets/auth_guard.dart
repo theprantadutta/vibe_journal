@@ -17,25 +17,32 @@ class AuthGuard extends StatelessWidget {
     return prefs.getBool('onboarding_completed') ?? false;
   }
 
-  /// Ensure Firebase token is stored for API requests
+  /// Ensure Firebase token is stored and refreshed for API requests
   /// This is called when user is already authenticated (e.g., app restart)
   Future<void> _ensureTokenStored(User firebaseUser) async {
     try {
       final authRepository = locator<AuthRepository>();
 
-      // Check if token already exists
+      // Check if token already exists and is still valid
       final hasToken = await authRepository.hasValidToken();
       if (hasToken) {
-        debugPrint('✅ Token already stored');
+        debugPrint('✅ Token already stored and valid');
         return;
       }
 
-      // Store Firebase token
-      debugPrint('📝 Storing Firebase token for authenticated user');
-      await authRepository.verifyFirebaseToken(firebaseUser);
-      debugPrint('✅ Firebase token stored successfully');
+      // Token is expired or doesn't exist - refresh it
+      debugPrint('🔄 Refreshing Firebase token for authenticated user');
+      final newToken = await authRepository.refreshToken();
+
+      if (newToken != null) {
+        debugPrint('✅ Firebase token refreshed successfully');
+      } else {
+        // Fallback: try to verify token if refresh failed
+        debugPrint('⚠️ Token refresh failed, attempting verification');
+        await authRepository.verifyFirebaseToken(firebaseUser);
+      }
     } catch (e) {
-      debugPrint('⚠️ Failed to store Firebase token: $e');
+      debugPrint('⚠️ Failed to refresh/store Firebase token: $e');
       // Don't block the UI, just log the error
     }
   }

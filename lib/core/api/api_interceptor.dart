@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'api_config.dart';
 import 'api_response.dart';
+import '../utils/token_utils.dart';
 
 /// API Interceptor for JWT injection and error handling
 class ApiInterceptor extends Interceptor {
@@ -24,8 +25,33 @@ class ApiInterceptor extends Interceptor {
       print('🌐 API Request: ${options.method} ${options.path}');
     }
 
+    // Get current token
+    String? token = await _storage.read(key: _jwtTokenKey);
+
+    // Check if token is expired or expiring soon (within 5 minutes)
+    if (token != null &&
+        token.isNotEmpty &&
+        TokenUtils.isTokenExpiringSoon(token)) {
+      if (ApiConfig.enableLogging) {
+        // ignore: avoid_print
+        print('🔄 Token expiring soon, refreshing...');
+      }
+
+      // Try to refresh the token
+      final newToken = await _refreshFirebaseToken();
+      if (newToken != null) {
+        token = newToken;
+        if (ApiConfig.enableLogging) {
+          // ignore: avoid_print
+          print('✅ Token refreshed successfully');
+        }
+      } else if (ApiConfig.enableLogging) {
+        // ignore: avoid_print
+        print('⚠️ Token refresh failed, using existing token');
+      }
+    }
+
     // Inject JWT token in Authorization header
-    final token = await _storage.read(key: _jwtTokenKey);
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
       if (ApiConfig.enableLogging) {
@@ -84,17 +110,78 @@ class ApiInterceptor extends Interceptor {
     return handler.next(customError);
   }
 
+  /// Refresh Firebase ID token
+  Future<String?> _refreshFirebaseToken() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        return null;
+      }
+
+      // Force refresh the Firebase ID token
+      final newToken = await currentUser.getIdToken(true);
+
+      if (newToken == null) {
+        return null;
+      }
+
+      // Store the new token
+      await _storage.write(key: _jwtTokenKey, value: newToken);
+
+      return newToken;
+    } catch (e) {
+      if (ApiConfig.enableLogging) {
+        // ignore: avoid_print
+        print('⚠️ Error refreshing token: $e');
+      }
+      return null;
+    }
+  }
+
   /// Handle 401 Unauthorized error
   Future<void> _handleUnauthorized(
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    // TODO: Implement token refresh logic if your backend supports it
-    // For now, just clear tokens and force re-login
-
     if (ApiConfig.enableLogging) {
       // ignore: avoid_print
-      print('🔐 Unauthorized: Logging out user');
+      print('🔐 Unauthorized: Attempting token refresh...');
+    }
+
+    // Try to refresh the token
+    final newToken = await _refreshFirebaseToken();
+
+    if (newToken != null) {
+      // Token refreshed successfully, retry the request
+      if (ApiConfig.enableLogging) {
+        // ignore: avoid_print
+        print('✅ Token refreshed, retrying request...');
+      }
+
+      try {
+        // Update the authorization header with the new token
+        err.requestOptions.headers['Authorization'] = 'Bearer $newToken';
+
+        // Retry the request
+        final dio = Dio();
+        final response = await dio.fetch(err.requestOptions);
+
+        // Return the successful response
+        return handler.resolve(response);
+      } catch (e) {
+        if (ApiConfig.enableLogging) {
+          // ignore: avoid_print
+          print('⚠️ Retry failed after token refresh: $e');
+        }
+        // If retry fails, proceed to logout
+      }
+    }
+
+    // Token refresh failed or retry failed - force re-login
+    if (ApiConfig.enableLogging) {
+      // ignore: avoid_print
+      print('🔐 Token refresh failed: Logging out user');
     }
 
     // Clear stored tokens

@@ -4,6 +4,7 @@ import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_endpoints.dart';
 import '../../../../core/api/api_response.dart';
 import '../../../../core/api/api_interceptor.dart';
+import '../../../../core/utils/token_utils.dart';
 
 /// Repository for authentication operations with REST API
 class AuthRepository {
@@ -69,9 +70,44 @@ class AuthRepository {
     await ApiInterceptor.clearToken();
   }
 
-  /// Check if user has valid JWT token
+  /// Check if user has valid JWT token (exists and not expired)
   Future<bool> hasValidToken() async {
     final token = await ApiInterceptor.getToken();
-    return token != null && token.isNotEmpty;
+    if (token == null || token.isEmpty) {
+      return false;
+    }
+    // Check if token is expired
+    return !TokenUtils.isTokenExpired(token);
+  }
+
+  /// Refresh the Firebase ID token
+  /// Returns the new token if successful, null otherwise
+  Future<String?> refreshToken() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        return null;
+      }
+
+      // Force refresh the Firebase ID token
+      final newToken = await currentUser.getIdToken(true);
+
+      if (newToken == null) {
+        return null;
+      }
+
+      // Store the new token
+      await ApiInterceptor.setToken(newToken);
+
+      return newToken;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get current stored token
+  Future<String?> getStoredToken() async {
+    return await ApiInterceptor.getToken();
   }
 }

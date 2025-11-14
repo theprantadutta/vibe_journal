@@ -60,6 +60,7 @@ dependencies:
   drift: ^2.23.0
   sqlite3_flutter_libs: ^0.5.25
   path: ^1.9.1
+  jwt_decoder: ^2.0.1
 
 dev_dependencies:
   flutter_test:
