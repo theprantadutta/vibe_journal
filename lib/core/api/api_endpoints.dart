@@ -18,8 +18,8 @@ class ApiEndpoints {
   // Vibes (Journal Entries)
   static const String vibes = '/vibes/';
   static const String vibesUpload = '/vibes/upload/';
-  static String vibe(String id) => '/vibes/$id/';
-  static String vibeAudio(String id) => '/vibes/$id/audio/';
+  static String vibe(String id) => '/vibes/$id';
+  static String vibeAudio(String id) => '/vibes/$id/audio';
 
   // AI Assistant
   static const String aiPrompt = '/ai/prompt/';
