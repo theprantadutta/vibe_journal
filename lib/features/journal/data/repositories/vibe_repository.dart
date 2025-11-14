@@ -490,6 +490,8 @@ class VibeRepository {
         createdAt: Timestamp.now(),
         processedAt: null,
         audioUrl: localAudioPath,
+        localAudioPath: localAudioPath, // Store absolute local path
+        isAudioDownloaded: true, // Already downloaded (it's local)
       );
 
       // Save to local database with pending upload flag
@@ -514,6 +516,8 @@ class VibeRepository {
                 true,
               ), // Mark as pending upload
               isPendingDelete: const drift.Value(false),
+              localAudioPath: drift.Value(vibe.localAudioPath), // Absolute local path
+              isAudioDownloaded: drift.Value(vibe.isAudioDownloaded),
             ),
           );
 
