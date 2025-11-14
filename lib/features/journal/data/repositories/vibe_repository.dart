@@ -349,6 +349,60 @@ class VibeRepository {
     }
   }
 
+  /// Retry transcription by uploading the audio file
+  ///
+  /// This is useful for free users whose audio files are not stored on the backend.
+  /// They can upload the file again to retry transcription.
+  Future<ApiResponse<VibeModel>> retryTranscription({
+    required String vibeId,
+    required File audioFile,
+    ProgressCallback? onSendProgress,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          audioFile.path,
+          filename: audioFile.path.split('/').last,
+        ),
+      });
+
+      final response = await _apiClient.dio.post(
+        '/api/v1/vibes/$vibeId/retry-transcription',
+        data: formData,
+        onSendProgress: onSendProgress,
+      );
+
+      if (_apiClient.isSuccessful(response)) {
+        final data = response.data as Map<String, dynamic>;
+        final vibe = VibeModel.fromBackendJson(data);
+
+        // Update cache
+        await _cacheVibe(vibe);
+
+        return ApiResponse.success(vibe);
+      } else {
+        final errorMsg =
+            _apiClient.getErrorMessage(response) ??
+            'Failed to retry transcription';
+        return ApiResponse.error(errorMsg, statusCode: response.statusCode);
+      }
+    } on DioException catch (e) {
+      if (e.error is ApiError) {
+        final apiError = e.error as ApiError;
+        return ApiResponse.error(
+          apiError.message,
+          statusCode: apiError.statusCode,
+        );
+      }
+      return ApiResponse.error(
+        e.message ?? 'Network error',
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
+    }
+  }
+
   /// Cache vibe in local Drift database
   Future<void> _cacheVibe(VibeModel vibeModel) async {
     try {

@@ -36,6 +36,19 @@ class UserModel {
   /// Create UserModel from Firestore document (backward compatibility)
   factory UserModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+
+    // Calculate isPremium from subscription fields, NOT from plan field
+    // This must match the backend's is_premium() logic
+    final subscriptionType = data['subscriptionType'] as String?;
+    final subscriptionStatus = data['subscriptionStatus'] as String? ?? 'free';
+
+    bool isPremium = false;
+    if (subscriptionType == 'lifetime' && subscriptionStatus == 'active') {
+      isPremium = true;
+    } else if (subscriptionStatus == 'active' || subscriptionStatus == 'grace_period') {
+      isPremium = true;
+    }
+
     return UserModel(
       uid: doc.id,
       email: data['email'] as String?,
@@ -46,9 +59,9 @@ class UserModel {
       maxRecordingDurationMinutes:
           data['maxRecordingDurationMinutes'] as int? ?? 5,
       createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(),
-      isPremium: (data['plan'] as String?) == 'premium',
-      subscriptionType: data['subscriptionType'] as String?,
-      subscriptionStatus: data['subscriptionStatus'] as String? ?? 'free',
+      isPremium: isPremium,
+      subscriptionType: subscriptionType,
+      subscriptionStatus: subscriptionStatus,
     );
   }
 
@@ -76,10 +89,20 @@ class UserModel {
   /// Create UserModel from Drift database User entity
   factory UserModel.fromDrift(User user) {
     // Determine premium status from subscription info (matching backend logic)
-    final isPremium = (user.subscriptionType == 'lifetime' &&
-            user.subscriptionStatus == 'active') ||
-        (user.subscriptionStatus == 'active' ||
-            user.subscriptionStatus == 'grace_period');
+    // This MUST match the backend's is_premium() method logic exactly
+    bool isPremium = false;
+
+    // Lifetime subscription
+    if (user.subscriptionType == 'lifetime' && user.subscriptionStatus == 'active') {
+      isPremium = true;
+    }
+    // Active or grace_period subscription - must also check expiry
+    else if (user.subscriptionStatus == 'active' || user.subscriptionStatus == 'grace_period') {
+      // Backend checks expiry dates - we should do the same
+      // However, Drift doesn't store expiry dates, so we trust the subscription_status
+      // The backend will update the status if expired, so this should be safe
+      isPremium = true;
+    }
 
     return UserModel(
       uid: user.uid,

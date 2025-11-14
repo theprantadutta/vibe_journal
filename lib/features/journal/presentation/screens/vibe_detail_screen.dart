@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:just_audio/just_audio.dart' as ja;
@@ -54,6 +55,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   // Polling for transcription updates
   Timer? _transcriptionPollTimer;
   VibeModel? _latestVibeData;
+  bool _isRetrying = false;
 
   /// Get current vibe data (latest or original)
   VibeModel get _currentVibe => _latestVibeData ?? widget.vibe;
@@ -123,6 +125,102 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   void _stopTranscriptionPolling() {
     _transcriptionPollTimer?.cancel();
     _transcriptionPollTimer = null;
+  }
+
+  /// Handle retry transcription button click
+  Future<void> _handleRetryTranscription() async {
+    setState(() => _isRetrying = true);
+
+    try {
+      // Get the local audio file path
+      final localPath = _currentVibe.audioUrl ?? _currentVibe.audioPath;
+
+      if (localPath == null) {
+        // Show error if no local file
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No local audio file found. Cannot retry transcription.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!localPath.startsWith('/')) {
+        // Not a local file path
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Audio file is not stored locally. Cannot retry transcription.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Upload file and retry transcription
+      final file = File(localPath);
+      if (!await file.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Audio file not found on device.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final response = await _vibeRepository.retryTranscription(
+        vibeId: _currentVibe.id,
+        audioFile: file,
+      );
+
+      if (response.isSuccess && response.data != null) {
+        if (mounted) {
+          setState(() {
+            _latestVibeData = response.data!;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Transcription retry started successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Start polling for updates
+          _startTranscriptionPolling();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to retry: ${response.error}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error retrying transcription: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+      }
+    }
   }
 
   Future<void> _initPlayer() async {
@@ -435,18 +533,45 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
               ],
             )
           else if (isFailed)
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 16,
-                  color: AppColors.getError(isDark),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 16,
+                      color: AppColors.getError(isDark),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      "Transcription failed.",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.getError(isDark),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  "Transcription failed. Please try again.",
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.getError(isDark),
+                const SizedBox(height: AppSpacing.sm),
+                ElevatedButton.icon(
+                  onPressed: _isRetrying ? null : _handleRetryTranscription,
+                  icon: _isRetrying
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: Text(_isRetrying ? "Uploading..." : "Retry Transcription"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.getPrimary(isDark),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
                   ),
                 ),
               ],
