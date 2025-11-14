@@ -515,19 +515,46 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
           ),
           Divider(height: AppSpacing.lg, color: AppColors.getInputFill(isDark)),
           if (isProcessing)
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.hourglass_empty,
-                  size: 16,
-                  color: AppColors.getPrimary(isDark),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.hourglass_empty,
+                      size: 16,
+                      color: AppColors.getPrimary(isDark),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      "Processing transcription...",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.getPrimary(isDark),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  "Processing transcription...",
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.getPrimary(isDark),
-                    fontStyle: FontStyle.italic,
+                const SizedBox(height: AppSpacing.sm),
+                ElevatedButton.icon(
+                  onPressed: _isRetrying ? null : _handleRetryTranscription,
+                  icon: _isRetrying
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: Text(_isRetrying ? "Uploading..." : "Retry Transcription"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.getPrimary(isDark),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
                   ),
                 ),
               ],
