@@ -280,6 +280,37 @@ class VibeRepository {
   }
 
   /// Download audio file URL (for playback)
+  /// Get single vibe by ID from API
+  Future<ApiResponse<VibeModel>> getVibe(String vibeId) async {
+    try {
+      final response = await _apiClient.get(ApiEndpoints.vibe(vibeId));
+
+      if (_apiClient.isSuccessful(response)) {
+        final data = response.data as Map<String, dynamic>;
+        final vibe = VibeModel.fromBackendJson(data);
+        return ApiResponse.success(vibe);
+      } else {
+        final errorMsg =
+            _apiClient.getErrorMessage(response) ?? 'Failed to get vibe';
+        return ApiResponse.error(errorMsg, statusCode: response.statusCode);
+      }
+    } on DioException catch (e) {
+      if (e.error is ApiError) {
+        final apiError = e.error as ApiError;
+        return ApiResponse.error(
+          apiError.message,
+          statusCode: apiError.statusCode,
+        );
+      }
+      return ApiResponse.error(
+        e.message ?? 'Network error',
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
+    }
+  }
+
   Future<ApiResponse<String>> getAudioUrl(String vibeId) async {
     try {
       final response = await _apiClient.get(ApiEndpoints.vibeAudio(vibeId));

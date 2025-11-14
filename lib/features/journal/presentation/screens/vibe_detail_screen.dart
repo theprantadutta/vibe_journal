@@ -51,12 +51,21 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   final _hapticService = HapticService();
   final _soundService = SoundService();
 
+  // Polling for transcription updates
+  Timer? _transcriptionPollTimer;
+  VibeModel? _latestVibeData;
+
+  /// Get current vibe data (latest or original)
+  VibeModel get _currentVibe => _latestVibeData ?? widget.vibe;
+
   @override
   void initState() {
     super.initState();
     _player = ja.AudioPlayer();
+    _latestVibeData = widget.vibe;
     _loadUserModel(); // Load the user model to check plan status
     _initPlayer();
+    _startTranscriptionPolling(); // Start polling if needed
   }
 
   // Added this function to robustly load the user model
@@ -72,6 +81,51 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     }
   }
 
+  /// Start polling for transcription updates if processing
+  void _startTranscriptionPolling() {
+    final processingStatus = _latestVibeData?.processingStatus ?? 'completed';
+    if (processingStatus == 'pending' || processingStatus == 'processing') {
+      // Poll every 10 seconds
+      _transcriptionPollTimer = Timer.periodic(
+        const Duration(seconds: 10),
+        (_) => _refreshTranscriptionStatus(),
+      );
+    }
+  }
+
+  /// Refresh vibe data to check transcription status
+  Future<void> _refreshTranscriptionStatus() async {
+    try {
+      // Only refresh if premium (has cloud sync)
+      if (!_userService.isPremium) {
+        _stopTranscriptionPolling();
+        return;
+      }
+
+      final response = await _vibeRepository.getVibe(_latestVibeData!.id);
+
+      if (response.isSuccess && response.data != null && mounted) {
+        setState(() {
+          _latestVibeData = response.data!;
+        });
+
+        // Stop polling if transcription completed or failed
+        final status = response.data!.processingStatus ?? 'completed';
+        if (status == 'completed' || status == 'failed') {
+          _stopTranscriptionPolling();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error refreshing transcription status: $e');
+    }
+  }
+
+  /// Stop transcription polling
+  void _stopTranscriptionPolling() {
+    _transcriptionPollTimer?.cancel();
+    _transcriptionPollTimer = null;
+  }
+
   Future<void> _initPlayer() async {
     // We combine player streams for efficient UI updates
     _playerStream = Rx.combineLatest3(
@@ -83,15 +137,24 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     );
 
     try {
-      // Get audio URL from backend
-      final urlResponse = await _vibeRepository.getAudioUrl(widget.vibe.id);
+      // Check if we have a local audio file first
+      final localPath = widget.vibe.audioUrl ?? widget.vibe.audioPath;
 
-      if (!urlResponse.isSuccess || urlResponse.data == null) {
-        throw Exception(urlResponse.error ?? 'Failed to get audio URL');
+      // Check if the path is a local file (starts with /)
+      if (localPath.startsWith('/')) {
+        // Use local file
+        await _player.setFilePath(localPath);
+      } else {
+        // Get audio URL from backend (for cloud-synced files)
+        final urlResponse = await _vibeRepository.getAudioUrl(widget.vibe.id);
+
+        if (!urlResponse.isSuccess || urlResponse.data == null) {
+          throw Exception(urlResponse.error ?? 'Failed to get audio URL');
+        }
+
+        final url = urlResponse.data!;
+        await _player.setUrl(url);
       }
-
-      final url = urlResponse.data!;
-      await _player.setUrl(url);
     } catch (e) {
       // ignore: avoid_print
       print("Error setting up player: $e");
@@ -110,6 +173,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
   @override
   void dispose() {
+    _stopTranscriptionPolling();
     _player.dispose();
     super.dispose();
   }
@@ -325,8 +389,8 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   }
 
   Widget _buildTranscriptionCard(ThemeData theme, bool isDark) {
-    // Check processing status
-    final processingStatus = widget.vibe.processingStatus ?? 'completed';
+    // Check processing status using current vibe data
+    final processingStatus = _currentVibe.processingStatus ?? 'completed';
     final isProcessing = processingStatus == 'pending' || processingStatus == 'processing';
     final isFailed = processingStatus == 'failed';
 
@@ -390,9 +454,9 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
             )
           else
             SelectableText(
-              widget.vibe.transcription.isEmpty
+              _currentVibe.transcription.isEmpty
                   ? "No transcription available for this vibe."
-                  : widget.vibe.transcription,
+                  : _currentVibe.transcription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppColors.getTextSecondary(isDark),
                 height: 1.5,
