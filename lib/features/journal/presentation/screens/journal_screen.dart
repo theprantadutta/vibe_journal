@@ -96,6 +96,8 @@ class _JournalScreenState extends State<JournalScreen>
   // Vibes list state
   List<VibeModel> _recentVibes = [];
   bool _isLoadingVibes = false;
+  int _vibeCount = 0;
+  int? _maxVibes; // null for unlimited (premium)
 
   @override
   void initState() {
@@ -170,6 +172,12 @@ class _JournalScreenState extends State<JournalScreen>
 
   Future<void> _startRecording() async {
     if (_recordingState != AppRecordingState.ready) return;
+
+    // Check premium gate for free users
+    if (_maxVibes != null && _vibeCount >= _maxVibes!) {
+      _showPremiumGateDialog();
+      return;
+    }
 
     await _hapticService.recordingStart();
 
@@ -335,6 +343,8 @@ class _JournalScreenState extends State<JournalScreen>
         _resetToReadyState();
         // Fetch from local storage only (no API call needed)
         _refreshLocalVibes();
+        // Update vibe count
+        await _loadVibeCountAndLimit();
       }
     } catch (e) {
       if (mounted) {
@@ -343,6 +353,128 @@ class _JournalScreenState extends State<JournalScreen>
     } finally {
       if (mounted) setState(() => _isSavingVibe = false);
     }
+  }
+
+  void _showPremiumGateDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+
+        return AlertDialog(
+          backgroundColor: AppColors.getSurfaceElevated(isDark),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.lock_rounded,
+                color: AppColors.getPrimary(isDark),
+                size: 28,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Vibe Limit Reached',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You\'ve reached your limit of $_maxVibes vibes on the free plan.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: AppColors.getTextSecondary(isDark),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.getPrimary(isDark).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Upgrade to Premium for:',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: AppColors.getTextPrimary(isDark),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _buildFeatureRow(Icons.all_inclusive, 'Unlimited vibes', isDark),
+                    _buildFeatureRow(Icons.cloud_sync, 'Auto cloud sync', isDark),
+                    _buildFeatureRow(Icons.mic, 'Longer recordings', isDark),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Maybe Later',
+                style: TextStyle(
+                  color: AppColors.getTextSecondary(isDark),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PremiumFeaturesScreen(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.getPrimary(isDark),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Upgrade to Premium'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFeatureRow(IconData icon, String text, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: AppColors.getPrimary(isDark),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            text,
+            style: TextStyle(
+              color: AppColors.getTextPrimary(isDark),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _discardRecording() async {
@@ -378,6 +510,7 @@ class _JournalScreenState extends State<JournalScreen>
       if (!mounted) return;
       setState(() => _currentUserModel = userModel);
       if (!_userService.isPremium) _checkShowUpgradeBanner();
+      await _loadVibeCountAndLimit(); // Load vibe count
     } else {
       final currentUserAuth = FirebaseAuth.instance.currentUser;
       if (currentUserAuth != null) {
@@ -392,11 +525,31 @@ class _JournalScreenState extends State<JournalScreen>
           if (!mounted) return;
           setState(() => _currentUserModel = model);
           if (!_userService.isPremium) _checkShowUpgradeBanner();
+          await _loadVibeCountAndLimit(); // Load vibe count
         } else {
           FirebaseAuth.instance.signOut();
           userService.clearUser();
         }
       }
+    }
+  }
+
+  Future<void> _loadVibeCountAndLimit() async {
+    try {
+      // Get current vibe count from local database
+      final count = await _syncService.getVibesCount();
+
+      // Determine max vibes based on premium status
+      final maxVibes = _userService.isPremium ? null : 10;
+
+      if (mounted) {
+        setState(() {
+          _vibeCount = count;
+          _maxVibes = maxVibes;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading vibe count: $e');
     }
   }
 
@@ -614,7 +767,69 @@ class _JournalScreenState extends State<JournalScreen>
             .animate(delay: 100.ms)
             .fadeIn(duration: 400.ms)
             .slideY(begin: -0.2, end: 0),
+        // Vibe count badge
+        if (_maxVibes != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          _buildVibeCountBadge(theme, isDark)
+              .animate(delay: 200.ms)
+              .fadeIn(duration: 400.ms)
+              .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1)),
+        ],
       ],
+    );
+  }
+
+  Widget _buildVibeCountBadge(ThemeData theme, bool isDark) {
+    final isNearLimit = _vibeCount >= (_maxVibes! * 0.8);
+    final isAtLimit = _vibeCount >= _maxVibes!;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: isAtLimit
+            ? Colors.red.withValues(alpha: 0.1)
+            : isNearLimit
+                ? Colors.orange.withValues(alpha: 0.1)
+                : AppColors.getPrimary(isDark).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isAtLimit
+              ? Colors.red.withValues(alpha: 0.3)
+              : isNearLimit
+                  ? Colors.orange.withValues(alpha: 0.3)
+                  : AppColors.getPrimary(isDark).withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isAtLimit ? Icons.warning_rounded : Icons.mic_rounded,
+            size: 16,
+            color: isAtLimit
+                ? Colors.red
+                : isNearLimit
+                    ? Colors.orange
+                    : AppColors.getPrimary(isDark),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            '$_vibeCount / $_maxVibes vibes',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: isAtLimit
+                  ? Colors.red
+                  : isNearLimit
+                      ? Colors.orange
+                      : AppColors.getTextPrimary(isDark),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
