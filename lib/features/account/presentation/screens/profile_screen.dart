@@ -107,7 +107,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final userService = locator<UserService>();
     final syncService = locator<SyncService>();
-    final bool isPremium = userService.isPremium;
 
     // Show confirmation dialog
     final bool? shouldLogout = await showDialog<bool>(
@@ -116,9 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: AppColors.getSurface(isDark),
         title: const Text('Confirm Logout'),
         content: Text(
-          isPremium
-              ? 'Your vibes will be synced to cloud before logging out.'
-              : 'Your local vibes will be kept for when you log back in.',
+          'Your vibes will be synced to cloud before logging out, and local data will be cleared.',
           style: TextStyle(color: AppColors.getTextSecondary(isDark)),
         ),
         actions: <Widget>[
@@ -143,64 +140,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (shouldLogout != true || !mounted) return;
 
     try {
-      if (isPremium) {
-        // Premium users: sync before logout
-        if (kDebugMode) {
-          print('🚪 LOGOUT: Premium user, syncing pending vibes...');
-        }
-
-        // Check if there are pending uploads
-        final hasPending = await syncService.hasPendingVibes();
-
-        if (hasPending) {
-          // Show syncing dialog
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: AppColors.getSurface(isDark),
-              title: const Text('Syncing...'),
-              content: const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Syncing your vibes to cloud...'),
-                ],
-              ),
-            ),
-          );
-
-          // Sync pending vibes
-          final syncResult = await syncService.syncPendingVibes();
-
-          // Close sync dialog
-          if (mounted) Navigator.of(context).pop();
-
-          if (!syncResult.success) {
-            if (mounted) {
-              SnackBarUtils.error(
-                context,
-                'Failed to sync vibes. Please check your connection and try again.',
-              );
-            }
-            return; // Block logout if sync fails
-          }
-
-          if (kDebugMode) {
-            print('✅ LOGOUT: All vibes synced successfully');
-          }
-        }
-
-        // Clear all local data for premium users
-        await _clearAllLocalData();
-      } else {
-        // Free users: keep local data
-        if (kDebugMode) {
-          print('🚪 LOGOUT: Free user, keeping local data');
-        }
-        // Only clear user session, not vibes/audio
+      // ALL users: sync before logout (unified architecture)
+      if (kDebugMode) {
+        print('🚪 LOGOUT: Syncing pending vibes...');
       }
+
+      // Check if there are pending uploads
+      final hasPending = await syncService.hasPendingVibes();
+
+      if (hasPending) {
+        // Show syncing dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.getSurface(isDark),
+            title: const Text('Syncing...'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Syncing your vibes to cloud...'),
+              ],
+            ),
+          ),
+        );
+
+        // Sync pending vibes
+        final syncResult = await syncService.syncPendingVibes();
+
+        // Close sync dialog
+        if (mounted) Navigator.of(context).pop();
+
+        if (!syncResult.success) {
+          if (mounted) {
+            SnackBarUtils.error(
+              context,
+              'Failed to sync vibes. Please check your connection and try again.',
+            );
+          }
+          return; // Block logout if sync fails
+        }
+
+        if (kDebugMode) {
+          print('✅ LOGOUT: All vibes synced successfully');
+        }
+      }
+
+      // Clear all local data for ALL users (unified architecture)
+      await _clearAllLocalData();
 
       // Clear user service and Firebase session
       await userService.clearUser();
