@@ -302,21 +302,34 @@ class _JournalScreenState extends State<JournalScreen>
         if (_userService.isPremium) {
           SnackBarUtils.showSuccess(
             context,
-            message: 'Vibe saved! Syncing to cloud...',
+            message: 'Vibe saved! Transcribing and syncing to cloud...',
           );
 
           // Trigger immediate background sync for premium users
           _syncService.syncPendingVibes().then((result) {
             if (mounted && result.success) {
-              // Optionally show a subtle success indicator
-              // User already knows it's syncing from the first message
+              // Show transcription processing notification
+              SnackBarUtils.showInfo(
+                context,
+                message: 'Transcription is being processed. Check back in a moment!',
+              );
             }
           });
         } else {
           SnackBarUtils.showSuccess(
             context,
-            message: 'Vibe saved locally! Upgrade to Premium for cloud sync.',
+            message: 'Vibe saved! Transcription will be processed shortly.',
           );
+
+          // Show additional info about transcription for free users
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              SnackBarUtils.showInfo(
+                context,
+                message: 'Transcription is being processed. Upgrade to Premium for cloud sync!',
+              );
+            }
+          });
         }
 
         _resetToReadyState();
@@ -966,6 +979,25 @@ class _JournalScreenState extends State<JournalScreen>
                         ).withValues(alpha: 0.6),
                       ),
                     ),
+                    // Processing status indicator
+                    if (vibe.processingStatus == 'pending' ||
+                        vibe.processingStatus == 'processing') ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      Icon(
+                        Icons.hourglass_empty,
+                        size: 12,
+                        color: AppColors.getPrimary(isDark).withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Processing...',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.getPrimary(isDark).withValues(alpha: 0.7),
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                     // Sync status indicator (premium only)
                     if (_userService.isPremium) ...[
                       const SizedBox(width: AppSpacing.xs),

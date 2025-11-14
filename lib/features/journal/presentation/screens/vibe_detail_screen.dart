@@ -325,21 +325,79 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   }
 
   Widget _buildTranscriptionCard(ThemeData theme, bool isDark) {
+    // Check processing status
+    final processingStatus = widget.vibe.processingStatus ?? 'completed';
+    final isProcessing = processingStatus == 'pending' || processingStatus == 'processing';
+    final isFailed = processingStatus == 'failed';
+
     return AnimatedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Transcription", style: theme.textTheme.titleLarge),
-          Divider(height: AppSpacing.lg, color: AppColors.getInputFill(isDark)),
-          SelectableText(
-            widget.vibe.transcription.isEmpty
-                ? "No transcription available for this vibe."
-                : widget.vibe.transcription,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: AppColors.getTextSecondary(isDark),
-              height: 1.5,
-            ),
+          Row(
+            children: [
+              Text("Transcription", style: theme.textTheme.titleLarge),
+              if (isProcessing) ...[
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.getPrimary(isDark),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
+          Divider(height: AppSpacing.lg, color: AppColors.getInputFill(isDark)),
+          if (isProcessing)
+            Row(
+              children: [
+                Icon(
+                  Icons.hourglass_empty,
+                  size: 16,
+                  color: AppColors.getPrimary(isDark),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  "Processing transcription...",
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.getPrimary(isDark),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            )
+          else if (isFailed)
+            Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 16,
+                  color: AppColors.getError(isDark),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  "Transcription failed. Please try again.",
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.getError(isDark),
+                  ),
+                ),
+              ],
+            )
+          else
+            SelectableText(
+              widget.vibe.transcription.isEmpty
+                  ? "No transcription available for this vibe."
+                  : widget.vibe.transcription,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: AppColors.getTextSecondary(isDark),
+                height: 1.5,
+              ),
+            ),
         ],
       ),
     );
