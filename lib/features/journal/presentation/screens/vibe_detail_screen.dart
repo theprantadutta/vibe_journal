@@ -132,10 +132,12 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     setState(() => _isRetrying = true);
 
     try {
-      // Get the local audio file path
-      final localPath = _currentVibe.audioUrl ?? _currentVibe.audioPath;
+      // Get the local audio file path (prioritize localAudioPath)
+      final localPath = _currentVibe.localAudioPath ??
+                        _currentVibe.audioUrl ??
+                        _currentVibe.audioPath;
 
-      if (localPath == null) {
+      if (localPath == null || localPath.isEmpty) {
         // Show error if no local file
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -148,8 +150,9 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
         return;
       }
 
-      if (!localPath.startsWith('/')) {
-        // Not a local file path
+      // Check if it's a URL (remote file) vs local file
+      if (localPath.startsWith('http://') || localPath.startsWith('https://')) {
+        // Remote file - cannot retry (we need local file to upload)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -166,8 +169,8 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
       if (!await file.exists()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Audio file not found on device.'),
+            SnackBar(
+              content: Text('Audio file not found: $localPath'),
               backgroundColor: Colors.red,
             ),
           );
@@ -265,16 +268,21 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     );
 
     try {
-      // Check if we have a local audio file first
-      final localPath = widget.vibe.audioUrl ?? widget.vibe.audioPath;
+      // Priority order for audio source:
+      // 1. localAudioPath (absolute path on device)
+      // 2. audioUrl (pre-signed URL or stored URL)
+      // 3. audioPath (relative path - needs conversion)
+      final String audioSource = widget.vibe.localAudioPath ??
+                                 widget.vibe.audioUrl ??
+                                 widget.vibe.audioPath;
 
       // Check if the path is a URL (starts with http/https) vs a local file
-      if (localPath.startsWith('http://') || localPath.startsWith('https://')) {
+      if (audioSource.startsWith('http://') || audioSource.startsWith('https://')) {
         // Remote URL - use directly
-        await _player.setUrl(localPath);
+        await _player.setUrl(audioSource);
       } else {
         // Local file path - use file path (works on Windows, Linux, macOS)
-        await _player.setFilePath(localPath);
+        await _player.setFilePath(audioSource);
       }
     } catch (e) {
       // ignore: avoid_print
