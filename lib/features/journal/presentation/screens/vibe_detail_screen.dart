@@ -268,20 +268,13 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
       // Check if we have a local audio file first
       final localPath = widget.vibe.audioUrl ?? widget.vibe.audioPath;
 
-      // Check if the path is a local file (starts with /)
-      if (localPath.startsWith('/')) {
-        // Use local file
-        await _player.setFilePath(localPath);
+      // Check if the path is a URL (starts with http/https) vs a local file
+      if (localPath.startsWith('http://') || localPath.startsWith('https://')) {
+        // Remote URL - use directly
+        await _player.setUrl(localPath);
       } else {
-        // Get audio URL from backend (for cloud-synced files)
-        final urlResponse = await _vibeRepository.getAudioUrl(widget.vibe.id);
-
-        if (!urlResponse.isSuccess || urlResponse.data == null) {
-          throw Exception(urlResponse.error ?? 'Failed to get audio URL');
-        }
-
-        final url = urlResponse.data!;
-        await _player.setUrl(url);
+        // Local file path - use file path (works on Windows, Linux, macOS)
+        await _player.setFilePath(localPath);
       }
     } catch (e) {
       // ignore: avoid_print
