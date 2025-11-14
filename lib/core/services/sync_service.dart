@@ -20,10 +20,6 @@ class SyncService {
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
 
-  // Exponential backoff delays in seconds: 5s, 15s, 30s, 60s, 300s
-  static const List<int> _retryDelays = [5, 15, 30, 60, 300];
-  static const int _maxRetries = 5;
-
   SyncService(this._database, this._vibeRepository, this._userService)
     : _apiClient = locator<ApiClient>();
 
@@ -122,18 +118,10 @@ class SyncService {
     }
   }
 
-  /// Sync all pending vibes to cloud (Premium only)
+  /// Sync all local vibes to cloud (All users)
   Future<SyncResult> syncPendingVibes() async {
     if (_isSyncing) {
       return SyncResult(success: false, message: 'Sync already in progress');
-    }
-
-    // Only premium users can sync
-    if (!_userService.isPremium) {
-      return SyncResult(
-        success: false,
-        message: 'Sync is only available for premium users',
-      );
     }
 
     _isSyncing = true;
@@ -142,39 +130,11 @@ class SyncService {
       // Sync deletions FIRST to avoid uploading vibes marked for deletion
       await deletePendingVibes();
 
-      // Get all vibes pending upload (excluding those marked for deletion)
-      final allPendingVibes = await (_database.select(
+      // Get all vibes (excluding those marked for deletion)
+      // In simplified architecture, we try to sync all vibes
+      final pendingVibes = await (_database.select(
         _database.vibes,
-      )..where((t) =>
-          t.isPendingUpload.equals(true) &
-          t.isPendingDelete.equals(false)
-      )).get();
-
-      // Filter vibes that can be retried (not exceeded max retries and passed retry delay)
-      final pendingVibes = allPendingVibes.where((vibe) {
-        // Skip if exceeded max retries
-        if (vibe.syncRetryCount >= _maxRetries) {
-          return false;
-        }
-
-        // Check if enough time has passed since last attempt for retry
-        if (vibe.lastSyncAttempt != null && vibe.syncRetryCount > 0) {
-          final delayIndex = (vibe.syncRetryCount - 1).clamp(
-            0,
-            _retryDelays.length - 1,
-          );
-          final requiredDelay = Duration(seconds: _retryDelays[delayIndex]);
-          final timeSinceLastAttempt = DateTime.now().difference(
-            vibe.lastSyncAttempt!,
-          );
-
-          if (timeSinceLastAttempt < requiredDelay) {
-            return false; // Not ready for retry yet
-          }
-        }
-
-        return true;
-      }).toList();
+      )..where((t) => t.isPendingDelete.equals(false))).get();
 
       if (pendingVibes.isEmpty) {
         _lastSyncTime = DateTime.now();
@@ -193,20 +153,12 @@ class SyncService {
 
       for (final vibeData in pendingVibes) {
         try {
-          // Update last sync attempt
-          await (_database.update(
-            _database.vibes,
-          )..where((t) => t.id.equals(vibeData.id))).write(
-            VibesCompanion(lastSyncAttempt: drift.Value(DateTime.now())),
-          );
-
           // Check if audio file exists locally
-          final audioFile = File(vibeData.audioPath);
+          final audioFile = File(vibeData.localAudioPath ?? vibeData.audioPath);
           if (!audioFile.existsSync()) {
             if (kDebugMode) {
               print('⚠️ Audio file not found for vibe ${vibeData.id}');
             }
-            await _incrementRetryCount(vibeData.id, vibeData.syncRetryCount);
             errors.add('Audio file not found for ${vibeData.fileName}');
             failedCount++;
             continue;
@@ -218,7 +170,6 @@ class SyncService {
           );
 
           if (!uploadResponse.isSuccess || uploadResponse.data == null) {
-            await _incrementRetryCount(vibeData.id, vibeData.syncRetryCount);
             errors.add('Failed to upload ${vibeData.fileName}');
             failedCount++;
             continue;
@@ -235,7 +186,6 @@ class SyncService {
           );
 
           if (!createResponse.isSuccess) {
-            await _incrementRetryCount(vibeData.id, vibeData.syncRetryCount);
             errors.add('Failed to create vibe ${vibeData.fileName}');
             failedCount++;
             continue;
@@ -282,11 +232,7 @@ class SyncService {
               ),
               createdAt: drift.Value(cloudVibe.createdAt.toDate()),
               processedAt: drift.Value(cloudVibe.processedAt),
-              lastSyncedAt: drift.Value(DateTime.now()),
-              isPendingUpload: const drift.Value(false),
               isPendingDelete: const drift.Value(false),
-              isSynced: const drift.Value(true), // Mark as synced
-              syncRetryCount: const drift.Value(0), // Reset retry count
               localAudioPath: drift.Value(localAudioPath),
               isAudioDownloaded: drift.Value(audioDownloaded),
             ),
@@ -308,7 +254,6 @@ class SyncService {
           if (kDebugMode) {
             print('❌ Error syncing vibe ${vibeData.id}: $e');
           }
-          await _incrementRetryCount(vibeData.id, vibeData.syncRetryCount);
           errors.add('Error syncing ${vibeData.fileName}: $e');
           failedCount++;
         }
@@ -333,11 +278,6 @@ class SyncService {
     }
   }
 
-  /// Increment retry count for a vibe
-  Future<void> _incrementRetryCount(String vibeId, int currentCount) async {
-    await (_database.update(_database.vibes)..where((t) => t.id.equals(vibeId)))
-        .write(VibesCompanion(syncRetryCount: drift.Value(currentCount + 1)));
-  }
 
   /// Download audio file from backend and store locally
   Future<String?> _downloadAudio(String vibeId, String audioUrl) async {
@@ -373,20 +313,20 @@ class SyncService {
     }
   }
 
-  /// Get count of pending vibes
-  Future<int> getPendingVibesCount() async {
+  /// Get count of vibes (for UI display)
+  Future<int> getVibesCount() async {
     final count =
         await (_database.selectOnly(_database.vibes)
               ..addColumns([_database.vibes.id.count()])
-              ..where(_database.vibes.isPendingUpload.equals(true)))
+              ..where(_database.vibes.isPendingDelete.equals(false)))
             .getSingle();
 
     return count.read(_database.vibes.id.count()) ?? 0;
   }
 
-  /// Check if there are any pending vibes to sync
+  /// Check if there are any vibes to sync
   Future<bool> hasPendingVibes() async {
-    final count = await getPendingVibesCount();
+    final count = await getVibesCount();
     return count > 0;
   }
 }

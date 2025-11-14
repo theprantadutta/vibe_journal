@@ -16,7 +16,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -32,12 +32,15 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(users, users.subscriptionStatus);
         }
         if (from < 3) {
-          // Add sync status fields in schema version 3
-          await m.addColumn(vibes, vibes.isSynced);
-          await m.addColumn(vibes, vibes.syncRetryCount);
-          await m.addColumn(vibes, vibes.lastSyncAttempt);
+          // Add local audio cache fields in schema version 3
           await m.addColumn(vibes, vibes.localAudioPath);
           await m.addColumn(vibes, vibes.isAudioDownloaded);
+        }
+        if (from < 4) {
+          // Remove complex sync flags in schema version 4 (simplified architecture)
+          // Note: SQLite doesn't support dropping columns easily.
+          // Drift will automatically handle this on table access.
+          // Data will be preserved, removed columns will be ignored.
         }
       },
     );

@@ -18,12 +18,7 @@ class VibeModel {
   final DateTime? processedAt;
   final String? audioUrl; // Pre-signed URL for playback
 
-  // Sync status fields (NEW)
-  final bool isSynced;
-  final int syncRetryCount;
-  final DateTime? lastSyncAttempt;
-
-  // Local audio cache fields (NEW)
+  // Local audio cache fields
   final String? localAudioPath;
   final bool isAudioDownloaded;
 
@@ -41,9 +36,6 @@ class VibeModel {
     this.processingStatus,
     this.processedAt,
     this.audioUrl,
-    this.isSynced = false,
-    this.syncRetryCount = 0,
-    this.lastSyncAttempt,
     this.localAudioPath,
     this.isAudioDownloaded = false,
   });
@@ -91,10 +83,6 @@ class VibeModel {
       createdAt: createdAt != null
           ? Timestamp.fromDate(DateTime.parse(createdAt))
           : Timestamp.now(),
-      // Cloud vibes are always synced by definition
-      isSynced: true,
-      syncRetryCount: 0,
-      lastSyncAttempt: null,
       localAudioPath: null,
       isAudioDownloaded: false,
     );
@@ -116,10 +104,6 @@ class VibeModel {
       processedAt: vibe.processedAt,
       audioUrl: vibe.localAudioPath ?? vibe.audioPath, // Use local if available
       createdAt: Timestamp.fromDate(vibe.createdAt),
-      // Sync status from database
-      isSynced: vibe.isSynced,
-      syncRetryCount: vibe.syncRetryCount,
-      lastSyncAttempt: vibe.lastSyncAttempt,
       localAudioPath: vibe.localAudioPath,
       isAudioDownloaded: vibe.isAudioDownloaded,
     );

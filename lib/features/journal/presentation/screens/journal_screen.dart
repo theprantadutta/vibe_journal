@@ -1035,30 +1035,24 @@ class _JournalScreenState extends State<JournalScreen>
   }
 
   Widget _buildSyncStatusBadge(VibeModel vibe, bool isDark) {
-    IconData icon;
-    Color color;
-    String tooltip;
-
-    if (!vibe.isSynced) {
-      // Pending sync
-      icon = Icons.cloud_upload_outlined;
-      color = Colors.orange;
-      tooltip = 'Pending sync';
-    } else if (vibe.isAudioDownloaded) {
-      // Synced and available offline
-      icon = Icons.offline_pin_rounded;
-      color = Colors.green;
-      tooltip = 'Available offline';
+    // In simplified architecture, all vibes are synced automatically
+    // Show offline availability status
+    if (vibe.isAudioDownloaded) {
+      // Available offline
+      return Tooltip(
+        message: 'Available offline',
+        child: Icon(Icons.offline_pin_rounded, size: 14, color: Colors.green),
+      );
     } else {
-      // Synced but not downloaded
-      icon = Icons.cloud_done_outlined;
-      color = AppColors.getPrimary(isDark);
-      tooltip = 'Synced to cloud';
+      // Cloud only
+      return Tooltip(
+        message: 'Synced to cloud',
+        child: Icon(
+          Icons.cloud_done_outlined,
+          size: 14,
+          color: AppColors.getPrimary(isDark),
+        ),
+      );
     }
-
-    return Tooltip(
-      message: tooltip,
-      child: Icon(icon, size: 14, color: color),
-    );
   }
 }

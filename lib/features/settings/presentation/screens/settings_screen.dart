@@ -74,8 +74,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSyncInformation() async {
     try {
-      // Load pending vibes count
-      final pendingCount = await _syncService.getPendingVibesCount();
+      // Load vibes count
+      final pendingCount = await _syncService.getVibesCount();
 
       // Load audio cache size
       final cacheSize = await _vibeRepository.getAudioCacheSize();

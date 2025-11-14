@@ -940,32 +940,6 @@ class $VibesTable extends Vibes with TableInfo<$VibesTable, Vibe> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _lastSyncedAtMeta = const VerificationMeta(
-    'lastSyncedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
-    'last_synced_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _isPendingUploadMeta = const VerificationMeta(
-    'isPendingUpload',
-  );
-  @override
-  late final GeneratedColumn<bool> isPendingUpload = GeneratedColumn<bool>(
-    'is_pending_upload',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_pending_upload" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
   static const VerificationMeta _isPendingDeleteMeta = const VerificationMeta(
     'isPendingDelete',
   );
@@ -981,45 +955,6 @@ class $VibesTable extends Vibes with TableInfo<$VibesTable, Vibe> {
     ),
     defaultValue: const Constant(false),
   );
-  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
-    'isSynced',
-  );
-  @override
-  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
-    'is_synced',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_synced" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _syncRetryCountMeta = const VerificationMeta(
-    'syncRetryCount',
-  );
-  @override
-  late final GeneratedColumn<int> syncRetryCount = GeneratedColumn<int>(
-    'sync_retry_count',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _lastSyncAttemptMeta = const VerificationMeta(
-    'lastSyncAttempt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> lastSyncAttempt =
-      GeneratedColumn<DateTime>(
-        'last_sync_attempt',
-        aliasedName,
-        true,
-        type: DriftSqlType.dateTime,
-        requiredDuringInsert: false,
-      );
   static const VerificationMeta _localAudioPathMeta = const VerificationMeta(
     'localAudioPath',
   );
@@ -1060,12 +995,7 @@ class $VibesTable extends Vibes with TableInfo<$VibesTable, Vibe> {
     processingStatus,
     createdAt,
     processedAt,
-    lastSyncedAt,
-    isPendingUpload,
     isPendingDelete,
-    isSynced,
-    syncRetryCount,
-    lastSyncAttempt,
     localAudioPath,
     isAudioDownloaded,
   ];
@@ -1177,54 +1107,12 @@ class $VibesTable extends Vibes with TableInfo<$VibesTable, Vibe> {
         ),
       );
     }
-    if (data.containsKey('last_synced_at')) {
-      context.handle(
-        _lastSyncedAtMeta,
-        lastSyncedAt.isAcceptableOrUnknown(
-          data['last_synced_at']!,
-          _lastSyncedAtMeta,
-        ),
-      );
-    }
-    if (data.containsKey('is_pending_upload')) {
-      context.handle(
-        _isPendingUploadMeta,
-        isPendingUpload.isAcceptableOrUnknown(
-          data['is_pending_upload']!,
-          _isPendingUploadMeta,
-        ),
-      );
-    }
     if (data.containsKey('is_pending_delete')) {
       context.handle(
         _isPendingDeleteMeta,
         isPendingDelete.isAcceptableOrUnknown(
           data['is_pending_delete']!,
           _isPendingDeleteMeta,
-        ),
-      );
-    }
-    if (data.containsKey('is_synced')) {
-      context.handle(
-        _isSyncedMeta,
-        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
-      );
-    }
-    if (data.containsKey('sync_retry_count')) {
-      context.handle(
-        _syncRetryCountMeta,
-        syncRetryCount.isAcceptableOrUnknown(
-          data['sync_retry_count']!,
-          _syncRetryCountMeta,
-        ),
-      );
-    }
-    if (data.containsKey('last_sync_attempt')) {
-      context.handle(
-        _lastSyncAttemptMeta,
-        lastSyncAttempt.isAcceptableOrUnknown(
-          data['last_sync_attempt']!,
-          _lastSyncAttemptMeta,
         ),
       );
     }
@@ -1303,30 +1191,10 @@ class $VibesTable extends Vibes with TableInfo<$VibesTable, Vibe> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}processed_at'],
       ),
-      lastSyncedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}last_synced_at'],
-      ),
-      isPendingUpload: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_pending_upload'],
-      )!,
       isPendingDelete: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_pending_delete'],
       )!,
-      isSynced: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_synced'],
-      )!,
-      syncRetryCount: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}sync_retry_count'],
-      )!,
-      lastSyncAttempt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}last_sync_attempt'],
-      ),
       localAudioPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}local_audio_path'],
@@ -1357,12 +1225,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
   final String processingStatus;
   final DateTime createdAt;
   final DateTime? processedAt;
-  final DateTime? lastSyncedAt;
-  final bool isPendingUpload;
   final bool isPendingDelete;
-  final bool isSynced;
-  final int syncRetryCount;
-  final DateTime? lastSyncAttempt;
   final String? localAudioPath;
   final bool isAudioDownloaded;
   const Vibe({
@@ -1378,12 +1241,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
     required this.processingStatus,
     required this.createdAt,
     this.processedAt,
-    this.lastSyncedAt,
-    required this.isPendingUpload,
     required this.isPendingDelete,
-    required this.isSynced,
-    required this.syncRetryCount,
-    this.lastSyncAttempt,
     this.localAudioPath,
     required this.isAudioDownloaded,
   });
@@ -1408,16 +1266,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
     if (!nullToAbsent || processedAt != null) {
       map['processed_at'] = Variable<DateTime>(processedAt);
     }
-    if (!nullToAbsent || lastSyncedAt != null) {
-      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
-    }
-    map['is_pending_upload'] = Variable<bool>(isPendingUpload);
     map['is_pending_delete'] = Variable<bool>(isPendingDelete);
-    map['is_synced'] = Variable<bool>(isSynced);
-    map['sync_retry_count'] = Variable<int>(syncRetryCount);
-    if (!nullToAbsent || lastSyncAttempt != null) {
-      map['last_sync_attempt'] = Variable<DateTime>(lastSyncAttempt);
-    }
     if (!nullToAbsent || localAudioPath != null) {
       map['local_audio_path'] = Variable<String>(localAudioPath);
     }
@@ -1445,16 +1294,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
       processedAt: processedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(processedAt),
-      lastSyncedAt: lastSyncedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(lastSyncedAt),
-      isPendingUpload: Value(isPendingUpload),
       isPendingDelete: Value(isPendingDelete),
-      isSynced: Value(isSynced),
-      syncRetryCount: Value(syncRetryCount),
-      lastSyncAttempt: lastSyncAttempt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(lastSyncAttempt),
       localAudioPath: localAudioPath == null && nullToAbsent
           ? const Value.absent()
           : Value(localAudioPath),
@@ -1482,12 +1322,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
       processingStatus: serializer.fromJson<String>(json['processingStatus']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       processedAt: serializer.fromJson<DateTime?>(json['processedAt']),
-      lastSyncedAt: serializer.fromJson<DateTime?>(json['lastSyncedAt']),
-      isPendingUpload: serializer.fromJson<bool>(json['isPendingUpload']),
       isPendingDelete: serializer.fromJson<bool>(json['isPendingDelete']),
-      isSynced: serializer.fromJson<bool>(json['isSynced']),
-      syncRetryCount: serializer.fromJson<int>(json['syncRetryCount']),
-      lastSyncAttempt: serializer.fromJson<DateTime?>(json['lastSyncAttempt']),
       localAudioPath: serializer.fromJson<String?>(json['localAudioPath']),
       isAudioDownloaded: serializer.fromJson<bool>(json['isAudioDownloaded']),
     );
@@ -1508,12 +1343,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
       'processingStatus': serializer.toJson<String>(processingStatus),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'processedAt': serializer.toJson<DateTime?>(processedAt),
-      'lastSyncedAt': serializer.toJson<DateTime?>(lastSyncedAt),
-      'isPendingUpload': serializer.toJson<bool>(isPendingUpload),
       'isPendingDelete': serializer.toJson<bool>(isPendingDelete),
-      'isSynced': serializer.toJson<bool>(isSynced),
-      'syncRetryCount': serializer.toJson<int>(syncRetryCount),
-      'lastSyncAttempt': serializer.toJson<DateTime?>(lastSyncAttempt),
       'localAudioPath': serializer.toJson<String?>(localAudioPath),
       'isAudioDownloaded': serializer.toJson<bool>(isAudioDownloaded),
     };
@@ -1532,12 +1362,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
     String? processingStatus,
     DateTime? createdAt,
     Value<DateTime?> processedAt = const Value.absent(),
-    Value<DateTime?> lastSyncedAt = const Value.absent(),
-    bool? isPendingUpload,
     bool? isPendingDelete,
-    bool? isSynced,
-    int? syncRetryCount,
-    Value<DateTime?> lastSyncAttempt = const Value.absent(),
     Value<String?> localAudioPath = const Value.absent(),
     bool? isAudioDownloaded,
   }) => Vibe(
@@ -1557,14 +1382,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
     processingStatus: processingStatus ?? this.processingStatus,
     createdAt: createdAt ?? this.createdAt,
     processedAt: processedAt.present ? processedAt.value : this.processedAt,
-    lastSyncedAt: lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
-    isPendingUpload: isPendingUpload ?? this.isPendingUpload,
     isPendingDelete: isPendingDelete ?? this.isPendingDelete,
-    isSynced: isSynced ?? this.isSynced,
-    syncRetryCount: syncRetryCount ?? this.syncRetryCount,
-    lastSyncAttempt: lastSyncAttempt.present
-        ? lastSyncAttempt.value
-        : this.lastSyncAttempt,
     localAudioPath: localAudioPath.present
         ? localAudioPath.value
         : this.localAudioPath,
@@ -1594,22 +1412,9 @@ class Vibe extends DataClass implements Insertable<Vibe> {
       processedAt: data.processedAt.present
           ? data.processedAt.value
           : this.processedAt,
-      lastSyncedAt: data.lastSyncedAt.present
-          ? data.lastSyncedAt.value
-          : this.lastSyncedAt,
-      isPendingUpload: data.isPendingUpload.present
-          ? data.isPendingUpload.value
-          : this.isPendingUpload,
       isPendingDelete: data.isPendingDelete.present
           ? data.isPendingDelete.value
           : this.isPendingDelete,
-      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
-      syncRetryCount: data.syncRetryCount.present
-          ? data.syncRetryCount.value
-          : this.syncRetryCount,
-      lastSyncAttempt: data.lastSyncAttempt.present
-          ? data.lastSyncAttempt.value
-          : this.lastSyncAttempt,
       localAudioPath: data.localAudioPath.present
           ? data.localAudioPath.value
           : this.localAudioPath,
@@ -1634,12 +1439,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
           ..write('processingStatus: $processingStatus, ')
           ..write('createdAt: $createdAt, ')
           ..write('processedAt: $processedAt, ')
-          ..write('lastSyncedAt: $lastSyncedAt, ')
-          ..write('isPendingUpload: $isPendingUpload, ')
           ..write('isPendingDelete: $isPendingDelete, ')
-          ..write('isSynced: $isSynced, ')
-          ..write('syncRetryCount: $syncRetryCount, ')
-          ..write('lastSyncAttempt: $lastSyncAttempt, ')
           ..write('localAudioPath: $localAudioPath, ')
           ..write('isAudioDownloaded: $isAudioDownloaded')
           ..write(')'))
@@ -1660,12 +1460,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
     processingStatus,
     createdAt,
     processedAt,
-    lastSyncedAt,
-    isPendingUpload,
     isPendingDelete,
-    isSynced,
-    syncRetryCount,
-    lastSyncAttempt,
     localAudioPath,
     isAudioDownloaded,
   );
@@ -1685,12 +1480,7 @@ class Vibe extends DataClass implements Insertable<Vibe> {
           other.processingStatus == this.processingStatus &&
           other.createdAt == this.createdAt &&
           other.processedAt == this.processedAt &&
-          other.lastSyncedAt == this.lastSyncedAt &&
-          other.isPendingUpload == this.isPendingUpload &&
           other.isPendingDelete == this.isPendingDelete &&
-          other.isSynced == this.isSynced &&
-          other.syncRetryCount == this.syncRetryCount &&
-          other.lastSyncAttempt == this.lastSyncAttempt &&
           other.localAudioPath == this.localAudioPath &&
           other.isAudioDownloaded == this.isAudioDownloaded);
 }
@@ -1708,12 +1498,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
   final Value<String> processingStatus;
   final Value<DateTime> createdAt;
   final Value<DateTime?> processedAt;
-  final Value<DateTime?> lastSyncedAt;
-  final Value<bool> isPendingUpload;
   final Value<bool> isPendingDelete;
-  final Value<bool> isSynced;
-  final Value<int> syncRetryCount;
-  final Value<DateTime?> lastSyncAttempt;
   final Value<String?> localAudioPath;
   final Value<bool> isAudioDownloaded;
   final Value<int> rowid;
@@ -1730,12 +1515,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
     this.processingStatus = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.processedAt = const Value.absent(),
-    this.lastSyncedAt = const Value.absent(),
-    this.isPendingUpload = const Value.absent(),
     this.isPendingDelete = const Value.absent(),
-    this.isSynced = const Value.absent(),
-    this.syncRetryCount = const Value.absent(),
-    this.lastSyncAttempt = const Value.absent(),
     this.localAudioPath = const Value.absent(),
     this.isAudioDownloaded = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1753,12 +1533,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
     this.processingStatus = const Value.absent(),
     required DateTime createdAt,
     this.processedAt = const Value.absent(),
-    this.lastSyncedAt = const Value.absent(),
-    this.isPendingUpload = const Value.absent(),
     this.isPendingDelete = const Value.absent(),
-    this.isSynced = const Value.absent(),
-    this.syncRetryCount = const Value.absent(),
-    this.lastSyncAttempt = const Value.absent(),
     this.localAudioPath = const Value.absent(),
     this.isAudioDownloaded = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1781,12 +1556,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
     Expression<String>? processingStatus,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? processedAt,
-    Expression<DateTime>? lastSyncedAt,
-    Expression<bool>? isPendingUpload,
     Expression<bool>? isPendingDelete,
-    Expression<bool>? isSynced,
-    Expression<int>? syncRetryCount,
-    Expression<DateTime>? lastSyncAttempt,
     Expression<String>? localAudioPath,
     Expression<bool>? isAudioDownloaded,
     Expression<int>? rowid,
@@ -1804,12 +1574,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
       if (processingStatus != null) 'processing_status': processingStatus,
       if (createdAt != null) 'created_at': createdAt,
       if (processedAt != null) 'processed_at': processedAt,
-      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
-      if (isPendingUpload != null) 'is_pending_upload': isPendingUpload,
       if (isPendingDelete != null) 'is_pending_delete': isPendingDelete,
-      if (isSynced != null) 'is_synced': isSynced,
-      if (syncRetryCount != null) 'sync_retry_count': syncRetryCount,
-      if (lastSyncAttempt != null) 'last_sync_attempt': lastSyncAttempt,
       if (localAudioPath != null) 'local_audio_path': localAudioPath,
       if (isAudioDownloaded != null) 'is_audio_downloaded': isAudioDownloaded,
       if (rowid != null) 'rowid': rowid,
@@ -1829,12 +1594,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
     Value<String>? processingStatus,
     Value<DateTime>? createdAt,
     Value<DateTime?>? processedAt,
-    Value<DateTime?>? lastSyncedAt,
-    Value<bool>? isPendingUpload,
     Value<bool>? isPendingDelete,
-    Value<bool>? isSynced,
-    Value<int>? syncRetryCount,
-    Value<DateTime?>? lastSyncAttempt,
     Value<String?>? localAudioPath,
     Value<bool>? isAudioDownloaded,
     Value<int>? rowid,
@@ -1852,12 +1612,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
       processingStatus: processingStatus ?? this.processingStatus,
       createdAt: createdAt ?? this.createdAt,
       processedAt: processedAt ?? this.processedAt,
-      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-      isPendingUpload: isPendingUpload ?? this.isPendingUpload,
       isPendingDelete: isPendingDelete ?? this.isPendingDelete,
-      isSynced: isSynced ?? this.isSynced,
-      syncRetryCount: syncRetryCount ?? this.syncRetryCount,
-      lastSyncAttempt: lastSyncAttempt ?? this.lastSyncAttempt,
       localAudioPath: localAudioPath ?? this.localAudioPath,
       isAudioDownloaded: isAudioDownloaded ?? this.isAudioDownloaded,
       rowid: rowid ?? this.rowid,
@@ -1903,23 +1658,8 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
     if (processedAt.present) {
       map['processed_at'] = Variable<DateTime>(processedAt.value);
     }
-    if (lastSyncedAt.present) {
-      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
-    }
-    if (isPendingUpload.present) {
-      map['is_pending_upload'] = Variable<bool>(isPendingUpload.value);
-    }
     if (isPendingDelete.present) {
       map['is_pending_delete'] = Variable<bool>(isPendingDelete.value);
-    }
-    if (isSynced.present) {
-      map['is_synced'] = Variable<bool>(isSynced.value);
-    }
-    if (syncRetryCount.present) {
-      map['sync_retry_count'] = Variable<int>(syncRetryCount.value);
-    }
-    if (lastSyncAttempt.present) {
-      map['last_sync_attempt'] = Variable<DateTime>(lastSyncAttempt.value);
     }
     if (localAudioPath.present) {
       map['local_audio_path'] = Variable<String>(localAudioPath.value);
@@ -1948,12 +1688,7 @@ class VibesCompanion extends UpdateCompanion<Vibe> {
           ..write('processingStatus: $processingStatus, ')
           ..write('createdAt: $createdAt, ')
           ..write('processedAt: $processedAt, ')
-          ..write('lastSyncedAt: $lastSyncedAt, ')
-          ..write('isPendingUpload: $isPendingUpload, ')
           ..write('isPendingDelete: $isPendingDelete, ')
-          ..write('isSynced: $isSynced, ')
-          ..write('syncRetryCount: $syncRetryCount, ')
-          ..write('lastSyncAttempt: $lastSyncAttempt, ')
           ..write('localAudioPath: $localAudioPath, ')
           ..write('isAudioDownloaded: $isAudioDownloaded, ')
           ..write('rowid: $rowid')
@@ -3059,12 +2794,7 @@ typedef $$VibesTableCreateCompanionBuilder =
       Value<String> processingStatus,
       required DateTime createdAt,
       Value<DateTime?> processedAt,
-      Value<DateTime?> lastSyncedAt,
-      Value<bool> isPendingUpload,
       Value<bool> isPendingDelete,
-      Value<bool> isSynced,
-      Value<int> syncRetryCount,
-      Value<DateTime?> lastSyncAttempt,
       Value<String?> localAudioPath,
       Value<bool> isAudioDownloaded,
       Value<int> rowid,
@@ -3083,12 +2813,7 @@ typedef $$VibesTableUpdateCompanionBuilder =
       Value<String> processingStatus,
       Value<DateTime> createdAt,
       Value<DateTime?> processedAt,
-      Value<DateTime?> lastSyncedAt,
-      Value<bool> isPendingUpload,
       Value<bool> isPendingDelete,
-      Value<bool> isSynced,
-      Value<int> syncRetryCount,
-      Value<DateTime?> lastSyncAttempt,
       Value<String?> localAudioPath,
       Value<bool> isAudioDownloaded,
       Value<int> rowid,
@@ -3162,33 +2887,8 @@ class $$VibesTableFilterComposer extends Composer<_$AppDatabase, $VibesTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
-    column: $table.lastSyncedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isPendingUpload => $composableBuilder(
-    column: $table.isPendingUpload,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<bool> get isPendingDelete => $composableBuilder(
     column: $table.isPendingDelete,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isSynced => $composableBuilder(
-    column: $table.isSynced,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get syncRetryCount => $composableBuilder(
-    column: $table.syncRetryCount,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get lastSyncAttempt => $composableBuilder(
-    column: $table.lastSyncAttempt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3272,33 +2972,8 @@ class $$VibesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
-    column: $table.lastSyncedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isPendingUpload => $composableBuilder(
-    column: $table.isPendingUpload,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<bool> get isPendingDelete => $composableBuilder(
     column: $table.isPendingDelete,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isSynced => $composableBuilder(
-    column: $table.isSynced,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get syncRetryCount => $composableBuilder(
-    column: $table.syncRetryCount,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get lastSyncAttempt => $composableBuilder(
-    column: $table.lastSyncAttempt,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3368,31 +3043,8 @@ class $$VibesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
-    column: $table.lastSyncedAt,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<bool> get isPendingUpload => $composableBuilder(
-    column: $table.isPendingUpload,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<bool> get isPendingDelete => $composableBuilder(
     column: $table.isPendingDelete,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<bool> get isSynced =>
-      $composableBuilder(column: $table.isSynced, builder: (column) => column);
-
-  GeneratedColumn<int> get syncRetryCount => $composableBuilder(
-    column: $table.syncRetryCount,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get lastSyncAttempt => $composableBuilder(
-    column: $table.lastSyncAttempt,
     builder: (column) => column,
   );
 
@@ -3447,12 +3099,7 @@ class $$VibesTableTableManager
                 Value<String> processingStatus = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> processedAt = const Value.absent(),
-                Value<DateTime?> lastSyncedAt = const Value.absent(),
-                Value<bool> isPendingUpload = const Value.absent(),
                 Value<bool> isPendingDelete = const Value.absent(),
-                Value<bool> isSynced = const Value.absent(),
-                Value<int> syncRetryCount = const Value.absent(),
-                Value<DateTime?> lastSyncAttempt = const Value.absent(),
                 Value<String?> localAudioPath = const Value.absent(),
                 Value<bool> isAudioDownloaded = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3469,12 +3116,7 @@ class $$VibesTableTableManager
                 processingStatus: processingStatus,
                 createdAt: createdAt,
                 processedAt: processedAt,
-                lastSyncedAt: lastSyncedAt,
-                isPendingUpload: isPendingUpload,
                 isPendingDelete: isPendingDelete,
-                isSynced: isSynced,
-                syncRetryCount: syncRetryCount,
-                lastSyncAttempt: lastSyncAttempt,
                 localAudioPath: localAudioPath,
                 isAudioDownloaded: isAudioDownloaded,
                 rowid: rowid,
@@ -3493,12 +3135,7 @@ class $$VibesTableTableManager
                 Value<String> processingStatus = const Value.absent(),
                 required DateTime createdAt,
                 Value<DateTime?> processedAt = const Value.absent(),
-                Value<DateTime?> lastSyncedAt = const Value.absent(),
-                Value<bool> isPendingUpload = const Value.absent(),
                 Value<bool> isPendingDelete = const Value.absent(),
-                Value<bool> isSynced = const Value.absent(),
-                Value<int> syncRetryCount = const Value.absent(),
-                Value<DateTime?> lastSyncAttempt = const Value.absent(),
                 Value<String?> localAudioPath = const Value.absent(),
                 Value<bool> isAudioDownloaded = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3515,12 +3152,7 @@ class $$VibesTableTableManager
                 processingStatus: processingStatus,
                 createdAt: createdAt,
                 processedAt: processedAt,
-                lastSyncedAt: lastSyncedAt,
-                isPendingUpload: isPendingUpload,
                 isPendingDelete: isPendingDelete,
-                isSynced: isSynced,
-                syncRetryCount: syncRetryCount,
-                lastSyncAttempt: lastSyncAttempt,
                 localAudioPath: localAudioPath,
                 isAudioDownloaded: isAudioDownloaded,
                 rowid: rowid,

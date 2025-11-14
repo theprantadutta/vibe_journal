@@ -26,20 +26,12 @@ class Vibes extends Table {
   // Metadata
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get processedAt => dateTime().nullable()();
-  DateTimeColumn get lastSyncedAt => dateTime().nullable()();
 
-  // Local flags
-  BoolColumn get isPendingUpload =>
-      boolean().withDefault(const Constant(false))();
+  // Local flags (simplified for v4)
   BoolColumn get isPendingDelete =>
       boolean().withDefault(const Constant(false))();
 
-  // Sync status (NEW in schema v3)
-  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
-  IntColumn get syncRetryCount => integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastSyncAttempt => dateTime().nullable()();
-
-  // Local audio cache (NEW in schema v3)
+  // Local audio cache
   TextColumn get localAudioPath => text().nullable()();
   BoolColumn get isAudioDownloaded =>
       boolean().withDefault(const Constant(false))();

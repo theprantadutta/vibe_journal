@@ -439,7 +439,6 @@ class VibeRepository {
               transcription: drift.Value(vibeModel.transcription),
               mood: drift.Value(vibeModel.mood),
               createdAt: drift.Value(vibeModel.createdAt.toDate()),
-              isPendingUpload: const drift.Value(false),
               isPendingDelete: const drift.Value(false),
             ),
           );
@@ -534,10 +533,6 @@ class VibeRepository {
               processingStatus: drift.Value(vibe.processingStatus ?? 'local'),
               createdAt: drift.Value(vibe.createdAt.toDate()),
               processedAt: drift.Value(vibe.processedAt),
-              lastSyncedAt: const drift.Value.absent(),
-              isPendingUpload: const drift.Value(
-                true,
-              ), // Mark as pending upload
               isPendingDelete: const drift.Value(false),
               localAudioPath: drift.Value(vibe.localAudioPath), // Absolute local path
               isAudioDownloaded: drift.Value(vibe.isAudioDownloaded),

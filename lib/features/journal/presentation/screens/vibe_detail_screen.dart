@@ -391,18 +391,9 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
       final vibe = _currentVibe;
 
-      // Determine delete strategy based on sync status
-      final ApiResponse<void> response;
-
-      if (vibe.isSynced) {
-        // Online delete - remove from backend and local
-        debugPrint('🗑️ Deleting synced vibe: ${vibe.id}');
-        response = await _vibeRepository.deleteVibe(vibe.id);
-      } else {
-        // Offline delete - mark for deletion and delete local file
-        debugPrint('🗑️ Marking unsynced vibe for deletion: ${vibe.id}');
-        response = await _vibeRepository.markVibeForDeletion(vibe.id);
-      }
+      // Delete vibe (always try backend first, falls back gracefully if needed)
+      debugPrint('🗑️ Deleting vibe: ${vibe.id}');
+      final ApiResponse<void> response = await _vibeRepository.deleteVibe(vibe.id);
 
       if (!mounted) return;
 
