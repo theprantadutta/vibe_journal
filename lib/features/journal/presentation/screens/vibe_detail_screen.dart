@@ -271,18 +271,29 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
       // Priority order for audio source:
       // 1. localAudioPath (absolute path on device)
       // 2. audioUrl (pre-signed URL or stored URL)
-      // 3. audioPath (relative path - needs conversion)
-      final String audioSource = widget.vibe.localAudioPath ??
-                                 widget.vibe.audioUrl ??
-                                 widget.vibe.audioPath;
+      // 3. Fetch audio URL from backend
 
-      // Check if the path is a URL (starts with http/https) vs a local file
-      if (audioSource.startsWith('http://') || audioSource.startsWith('https://')) {
-        // Remote URL - use directly
-        await _player.setUrl(audioSource);
+      if (widget.vibe.localAudioPath != null && widget.vibe.localAudioPath!.isNotEmpty) {
+        // Use local file
+        final localFile = File(widget.vibe.localAudioPath!);
+        if (await localFile.exists()) {
+          await _player.setFilePath(widget.vibe.localAudioPath!);
+        } else {
+          throw Exception('Local audio file not found');
+        }
+      } else if (widget.vibe.audioUrl != null && widget.vibe.audioUrl!.isNotEmpty) {
+        // Use existing audio URL
+        await _player.setUrl(widget.vibe.audioUrl!);
       } else {
-        // Local file path - use file path (works on Windows, Linux, macOS)
-        await _player.setFilePath(audioSource);
+        // Fetch audio URL from backend
+        final urlResponse = await _vibeRepository.getAudioUrl(widget.vibe.id);
+
+        if (!urlResponse.isSuccess || urlResponse.data == null) {
+          throw Exception(urlResponse.error ?? 'Failed to get audio URL');
+        }
+
+        final url = urlResponse.data!;
+        await _player.setUrl(url);
       }
     } catch (e) {
       // ignore: avoid_print
