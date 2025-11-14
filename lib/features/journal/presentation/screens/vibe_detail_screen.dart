@@ -96,12 +96,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   /// Refresh vibe data to check transcription status
   Future<void> _refreshTranscriptionStatus() async {
     try {
-      // Only refresh if premium (has cloud sync)
-      if (!_userService.isPremium) {
-        _stopTranscriptionPolling();
-        return;
-      }
-
+      // Fetch latest vibe data from backend
       final response = await _vibeRepository.getVibe(_latestVibeData!.id);
 
       if (response.isSuccess && response.data != null && mounted) {
@@ -114,9 +109,13 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
         if (status == 'completed' || status == 'failed') {
           _stopTranscriptionPolling();
         }
+
+        debugPrint('🔄 Transcription status updated: $status');
       }
     } catch (e) {
-      debugPrint('Error refreshing transcription status: $e');
+      debugPrint('⚠️ Error refreshing transcription status: $e');
+      // Stop polling after repeated errors to avoid spamming
+      _stopTranscriptionPolling();
     }
   }
 
