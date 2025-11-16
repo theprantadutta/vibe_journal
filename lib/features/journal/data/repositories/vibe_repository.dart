@@ -309,6 +309,10 @@ class VibeRepository {
       if (_apiClient.isSuccessful(response)) {
         final data = response.data as Map<String, dynamic>;
         final vibe = VibeModel.fromBackendJson(data);
+
+        // Cache the updated vibe to local database
+        await _cacheVibe(vibe);
+
         return ApiResponse.success(vibe);
       } else {
         final errorMsg =
@@ -427,19 +431,42 @@ class VibeRepository {
   /// Cache vibe in local Drift database
   Future<void> _cacheVibe(VibeModel vibeModel) async {
     try {
+      // Check if vibe already exists in cache
+      final existing = await (_database.select(_database.vibes)
+            ..where((t) => t.id.equals(vibeModel.id)))
+          .getSingleOrNull();
+
+      // If exists with local file, preserve the local path
+      String audioPathToUse = vibeModel.audioPath;
+      String? localAudioPathToUse = vibeModel.localAudioPath;
+      bool isDownloaded = vibeModel.isAudioDownloaded;
+
+      if (existing != null && existing.localAudioPath != null && existing.localAudioPath!.isNotEmpty) {
+        // Preserve existing local file path
+        audioPathToUse = existing.localAudioPath!;
+        localAudioPathToUse = existing.localAudioPath;
+        isDownloaded = true;
+      }
+
       await _database
           .into(_database.vibes)
           .insertOnConflictUpdate(
             VibesCompanion(
               id: drift.Value(vibeModel.id),
               userId: drift.Value(vibeModel.userId),
-              audioPath: drift.Value(vibeModel.audioPath),
+              audioPath: drift.Value(audioPathToUse), // Preserve local path if exists
               fileName: drift.Value(vibeModel.fileName),
               duration: drift.Value(vibeModel.duration),
               transcription: drift.Value(vibeModel.transcription),
               mood: drift.Value(vibeModel.mood),
+              sentimentScore: drift.Value(vibeModel.sentimentScore),
+              sentimentMagnitude: drift.Value(vibeModel.sentimentMagnitude),
+              processingStatus: drift.Value(vibeModel.processingStatus ?? 'completed'),
+              processedAt: drift.Value(vibeModel.processedAt),
               createdAt: drift.Value(vibeModel.createdAt.toDate()),
               isPendingDelete: const drift.Value(false),
+              localAudioPath: drift.Value(localAudioPathToUse), // Preserve local path
+              isAudioDownloaded: drift.Value(isDownloaded),
             ),
           );
     } catch (e) {

@@ -55,7 +55,7 @@ class UserModel {
       fullName: data['fullName'] as String?,
       plan: data['plan'] as String? ?? 'free',
       cloudVibeCount: data['cloudVibeCount'] as int? ?? 0,
-      maxCloudVibes: data['maxCloudVibes'] as int? ?? 75,
+      maxCloudVibes: data['maxCloudVibes'] as int? ?? 20,
       maxRecordingDurationMinutes:
           data['maxRecordingDurationMinutes'] as int? ?? 5,
       createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(),
@@ -74,7 +74,7 @@ class UserModel {
       fullName: json['full_name'] as String?,
       plan: json['plan_name'] as String? ?? 'free',
       cloudVibeCount: json['cloud_vibe_count'] as int? ?? 0,
-      maxCloudVibes: json['max_cloud_vibes'] as int? ?? 75,
+      maxCloudVibes: json['max_cloud_vibes'] as int? ?? 20,
       maxRecordingDurationMinutes:
           json['max_recording_duration_minutes'] as int? ?? 5,
       createdAt: createdAt != null

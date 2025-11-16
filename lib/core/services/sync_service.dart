@@ -1,27 +1,21 @@
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
-import '../api/api_client.dart';
 import '../../features/journal/data/repositories/vibe_repository.dart';
 import 'user_service.dart';
-import 'service_locator.dart';
 
 /// Service to handle background sync for premium users
 class SyncService {
   final AppDatabase _database;
   final VibeRepository _vibeRepository;
   final UserService _userService;
-  final ApiClient _apiClient;
 
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
 
-  SyncService(this._database, this._vibeRepository, this._userService)
-    : _apiClient = locator<ApiClient>();
+  SyncService(this._database, this._vibeRepository, this._userService);
 
   bool get isSyncing => _isSyncing;
   DateTime? get lastSyncTime => _lastSyncTime;
@@ -124,6 +118,22 @@ class SyncService {
       return SyncResult(success: false, message: 'Sync already in progress');
     }
 
+    // Check if free user is at/over limit - block sync if so
+    if (!_userService.isPremium && _userService.isUserLoggedIn) {
+      final currentUser = _userService.currentUser;
+      final cloudCount = currentUser.cloudVibeCount;
+      final maxVibes = currentUser.maxCloudVibes;
+
+      if (cloudCount >= maxVibes) {
+        return SyncResult(
+          success: false,
+          message: 'Cannot sync: You have reached your limit of $maxVibes vibes. Upgrade to Premium for unlimited storage!',
+          uploadedCount: 0,
+          failedCount: 0,
+        );
+      }
+    }
+
     _isSyncing = true;
 
     try {
@@ -148,7 +158,6 @@ class SyncService {
 
       int successCount = 0;
       int failedCount = 0;
-      int audioDownloadedCount = 0;
       List<String> errors = [];
 
       for (final vibeData in pendingVibes) {
@@ -193,34 +202,19 @@ class SyncService {
 
           final cloudVibe = createResponse.data!;
 
-          // Download audio file from cloud for offline playback
-          String? localAudioPath;
-          bool audioDownloaded = false;
+          // Keep the original local audio file path for playback
+          // Files stay local and are only synced to backend as backup
+          final originalLocalPath = vibeData.localAudioPath ?? vibeData.audioPath;
 
-          try {
-            localAudioPath = await _downloadAudio(
-              cloudVibe.id,
-              cloudVibe.audioUrl ?? '',
-            );
-            if (localAudioPath != null) {
-              audioDownloaded = true;
-              audioDownloadedCount++;
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('⚠️ Failed to download audio for ${cloudVibe.id}: $e');
-            }
-            // Continue even if audio download fails
-          }
-
-          // Update local vibe with cloud data
+          // Update local vibe with cloud metadata but keep local audio path
           await (_database.update(
             _database.vibes,
           )..where((t) => t.id.equals(vibeData.id))).write(
             VibesCompanion(
               id: drift.Value(cloudVibe.id),
               userId: drift.Value(cloudVibe.userId),
-              audioPath: drift.Value(cloudVibe.audioPath),
+              // Keep local path for playback, not cloud path
+              audioPath: drift.Value(originalLocalPath),
               fileName: drift.Value(cloudVibe.fileName),
               duration: drift.Value(cloudVibe.duration),
               transcription: drift.Value(cloudVibe.transcription),
@@ -233,20 +227,15 @@ class SyncService {
               createdAt: drift.Value(cloudVibe.createdAt.toDate()),
               processedAt: drift.Value(cloudVibe.processedAt),
               isPendingDelete: const drift.Value(false),
-              localAudioPath: drift.Value(localAudioPath),
-              isAudioDownloaded: drift.Value(audioDownloaded),
+              // Keep original local path for playback
+              localAudioPath: drift.Value(originalLocalPath),
+              isAudioDownloaded: const drift.Value(true), // Already local
             ),
           );
 
-          // Delete original local audio file after successful upload
-          try {
-            if (audioFile.existsSync()) {
-              await audioFile.delete();
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('⚠️ Could not delete original audio file: $e');
-            }
+          // DO NOT delete the local file - we want to keep it for playback
+          if (kDebugMode) {
+            print('✅ Synced vibe ${cloudVibe.id}, kept local file at $originalLocalPath');
           }
 
           successCount++;
@@ -269,47 +258,11 @@ class SyncService {
             : 'Synced $successCount vibes, $failedCount failed',
         uploadedCount: successCount,
         failedCount: failedCount,
-        audioDownloadedCount: audioDownloadedCount,
         errors: errors,
       );
     } catch (e) {
       _isSyncing = false;
       return SyncResult(success: false, message: 'Sync failed: $e');
-    }
-  }
-
-
-  /// Download audio file from backend and store locally
-  Future<String?> _downloadAudio(String vibeId, String audioUrl) async {
-    if (audioUrl.isEmpty) return null;
-
-    try {
-      // Get app documents directory
-      final appDir = await getApplicationDocumentsDirectory();
-      final audioDir = Directory('${appDir.path}/audio');
-      if (!audioDir.existsSync()) {
-        audioDir.createSync(recursive: true);
-      }
-
-      final localPath = '${audioDir.path}/$vibeId.m4a';
-
-      // Download using Dio
-      final response = await _apiClient.dio.download(
-        audioUrl,
-        localPath,
-        options: Options(receiveTimeout: const Duration(minutes: 5)),
-      );
-
-      if (response.statusCode == 200) {
-        return localPath;
-      }
-
-      return null;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error downloading audio: $e');
-      }
-      return null;
     }
   }
 
@@ -337,7 +290,6 @@ class SyncResult {
   final String message;
   final int uploadedCount;
   final int failedCount;
-  final int audioDownloadedCount;
   final List<String> errors;
 
   SyncResult({
@@ -345,7 +297,6 @@ class SyncResult {
     required this.message,
     this.uploadedCount = 0,
     this.failedCount = 0,
-    this.audioDownloadedCount = 0,
     this.errors = const [],
   });
 }

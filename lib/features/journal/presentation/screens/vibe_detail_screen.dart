@@ -127,49 +127,32 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   }
 
   /// Handle retry transcription button click
+  /// All vibes are synced to cloud, so we need the local cached audio file to retry
   Future<void> _handleRetryTranscription() async {
     setState(() => _isRetrying = true);
 
     try {
-      // Get the local audio file path (prioritize localAudioPath)
-      final localPath = _currentVibe.localAudioPath ??
-                        _currentVibe.audioUrl ??
-                        _currentVibe.audioPath;
+      // Get local audio file path (needed for retry endpoint)
+      final localPath = _currentVibe.localAudioPath;
 
-      if (localPath.isEmpty) {
-        // Show error if no local file
+      if (localPath == null || localPath.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No local audio file found. Cannot retry transcription.'),
-              backgroundColor: Colors.red,
+              content: Text('Audio file not cached locally. Please try refreshing the vibe.'),
+              backgroundColor: Colors.orange,
             ),
           );
         }
         return;
       }
 
-      // Check if it's a URL (remote file) vs local file
-      if (localPath.startsWith('http://') || localPath.startsWith('https://')) {
-        // Remote file - cannot retry (we need local file to upload)
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Audio file is not stored locally. Cannot retry transcription.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Upload file and retry transcription
       final file = File(localPath);
       if (!await file.exists()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Audio file not found: $localPath'),
+            const SnackBar(
+              content: Text('Audio file not found. Please ensure you have network connectivity.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -177,41 +160,11 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
         return;
       }
 
-      // Try retry endpoint first
-      var response = await _vibeRepository.retryTranscription(
+      // Retry transcription with the cached audio file
+      final response = await _vibeRepository.retryTranscription(
         vibeId: _currentVibe.id,
         audioFile: file,
       );
-
-      // If vibe doesn't exist in backend (404), create it first
-      if (response.statusCode == 404) {
-        debugPrint('📤 Vibe not in backend, uploading and creating...');
-
-        // Upload audio file
-        final uploadResponse = await _vibeRepository.uploadAudioFile(file);
-
-        if (!uploadResponse.isSuccess || uploadResponse.data == null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to upload audio: ${uploadResponse.error}'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return;
-        }
-
-        // Create vibe entry
-        final createResponse = await _vibeRepository.createVibe(
-          id: _currentVibe.id,
-          audioPath: uploadResponse.data!,
-          fileName: _currentVibe.fileName.isNotEmpty ? _currentVibe.fileName : 'audio.flac',
-          durationMs: _currentVibe.duration,
-        );
-
-        response = createResponse;
-      }
 
       if (response.isSuccess && response.data != null) {
         if (mounted) {
@@ -221,7 +174,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Transcription started successfully!'),
+              content: Text('Transcription restarted successfully!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -233,7 +186,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to start transcription: ${response.error}'),
+              content: Text('Failed to retry transcription: ${response.error}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -267,36 +220,30 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     );
 
     try {
-      // Priority order for audio source:
-      // 1. localAudioPath (absolute path on device)
-      // 2. audioUrl (pre-signed URL or stored URL)
-      // 3. Fetch audio URL from backend
+      // Priority order for audio source (local-first approach):
+      // 1. localAudioPath (preferred - all files are stored locally)
+      // 2. audioPath (fallback)
+      // 3. audioUrl (cloud URL as last resort)
 
-      if (widget.vibe.localAudioPath != null && widget.vibe.localAudioPath!.isNotEmpty) {
-        // Use local file
-        final localFile = File(widget.vibe.localAudioPath!);
+      // Try local file path first
+      final localPath = widget.vibe.localAudioPath ?? widget.vibe.audioPath;
+
+      // Check if it's a local file
+      if (localPath.isNotEmpty && !localPath.startsWith('http://') && !localPath.startsWith('https://')) {
+        final localFile = File(localPath);
         if (await localFile.exists()) {
-          await _player.setFilePath(widget.vibe.localAudioPath!);
+          await _player.setFilePath(localPath);
         } else {
-          throw Exception('Local audio file not found');
+          throw Exception('Audio file not found at: $localPath');
         }
       } else if (widget.vibe.audioUrl != null && widget.vibe.audioUrl!.isNotEmpty) {
-        // Use existing audio URL
+        // Fallback to cloud URL if local file not available
         await _player.setUrl(widget.vibe.audioUrl!);
       } else {
-        // Fetch audio URL from backend
-        final urlResponse = await _vibeRepository.getAudioUrl(widget.vibe.id);
-
-        if (!urlResponse.isSuccess || urlResponse.data == null) {
-          throw Exception(urlResponse.error ?? 'Failed to get audio URL');
-        }
-
-        final url = urlResponse.data!;
-        await _player.setUrl(url);
+        throw Exception('No audio source available');
       }
     } catch (e) {
-      // ignore: avoid_print
-      print("Error setting up player: $e");
+      debugPrint("Error setting up player: $e");
       if (mounted) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -322,11 +269,11 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     setState(() => _isFetchingFeedback = true);
 
     try {
-      // Get reflective feedback from backend AI
+      // Get reflective feedback from backend AI using current vibe data
       final response = await _aiRepository.getReflectiveFeedback(
-        transcription: widget.vibe.transcription,
-        mood: widget.vibe.mood,
-        durationSeconds: (widget.vibe.duration / 1000).round(),
+        transcription: _currentVibe.transcription,
+        mood: _currentVibe.mood,
+        durationSeconds: (_currentVibe.duration / 1000).round(),
       );
 
       final String responseText = response.isSuccess && response.data != null
@@ -335,7 +282,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
 
       if (mounted) setState(() => _aiFeedback = responseText);
     } catch (e) {
-      print("Error calling AI function: $e");
+      debugPrint("Error calling AI function: $e");
       if (mounted) {
         setState(
           () => _aiFeedback =
@@ -434,7 +381,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final vibeDate = widget.vibe.createdAt.toDate();
+    final vibeDate = _currentVibe.createdAt.toDate();
 
     return Scaffold(
       appBar: AppBar(
@@ -489,7 +436,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
         children: [
           Icon(
             Icons.bubble_chart_rounded,
-            color: AppColors.getMoodColor(widget.vibe.mood, isDark),
+            color: AppColors.getMoodColor(_currentVibe.mood, isDark),
             size: 40,
           ),
           const SizedBox(width: AppSpacing.lg),
@@ -497,14 +444,14 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.vibe.mood.toUpperCase(),
+                _currentVibe.mood.toUpperCase(),
                 style: theme.textTheme.titleLarge?.copyWith(
-                  color: AppColors.getMoodColor(widget.vibe.mood, isDark),
+                  color: AppColors.getMoodColor(_currentVibe.mood, isDark),
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
-                'Recorded at ${DateFormat('hh:mm a').format(widget.vibe.createdAt.toDate())}',
+                'Recorded at ${DateFormat('hh:mm a').format(_currentVibe.createdAt.toDate())}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.getTextHint(isDark),
                 ),
@@ -832,7 +779,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
     }
 
     // Don't show anything if there's no text to analyze
-    if (widget.vibe.transcription.isEmpty) return const SizedBox.shrink();
+    if (_currentVibe.transcription.isEmpty) return const SizedBox.shrink();
 
     // If user is premium and hasn't requested feedback yet, show the button
     if (isPremium) {

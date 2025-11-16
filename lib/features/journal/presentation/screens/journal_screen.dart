@@ -108,20 +108,23 @@ class _JournalScreenState extends State<JournalScreen>
     // Setup animations
     _orbAnimationController = AnimationController(
       vsync: this,
-      duration: AppAnimations.orbPulse,
+      duration: const Duration(milliseconds: 1500), // Slower, gentler pulse
     );
-    _orbPulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(parent: _orbAnimationController, curve: Curves.easeInOut),
+    _orbPulseAnimation = Tween<double>(begin: 1.0, end: 1.06).animate(
+      CurvedAnimation(
+        parent: _orbAnimationController,
+        curve: Curves.easeInOutCubic, // Smoother curve
+      ),
     );
 
     _glowAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 2500), // Slower glow
     )..repeat(reverse: true);
-    _glowAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+    _glowAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
       CurvedAnimation(
         parent: _glowAnimationController,
-        curve: Curves.easeInOut,
+        curve: Curves.easeInOutSine, // Smoother, more organic curve
       ),
     );
 
@@ -306,44 +309,41 @@ class _JournalScreenState extends State<JournalScreen>
       }
 
       if (mounted) {
-        // Show appropriate message based on user type
-        if (_userService.isPremium) {
-          SnackBarUtils.showSuccess(
-            context,
-            message: 'Vibe saved! Transcribing and syncing to cloud...',
-          );
+        SnackBarUtils.showSuccess(
+          context,
+          message: 'Vibe saved! Syncing to cloud...',
+        );
 
-          // Trigger immediate background sync for premium users
-          _syncService.syncPendingVibes().then((result) {
-            if (mounted && result.success) {
+        // Trigger sync for ALL users (both free and premium)
+        _syncService.syncPendingVibes().then((result) async {
+          if (mounted) {
+            if (result.success) {
+              // Refresh user data to get updated cloud_vibe_count
+              await _userService.fetchAndUpdateUser();
+              // Reload user model and vibe count
+              final updatedUser = _userService.currentUser;
+              setState(() => _currentUserModel = updatedUser);
+              await _loadVibeCountAndLimit();
+
               // Show transcription processing notification
               SnackBarUtils.showInfo(
                 context,
-                message: 'Transcription is being processed. Check back in a moment!',
+                message: 'Synced! Transcription is being processed. Check back in a moment!',
               );
-            }
-          });
-        } else {
-          SnackBarUtils.showSuccess(
-            context,
-            message: 'Vibe saved! Transcription will be processed shortly.',
-          );
-
-          // Show additional info about transcription for free users
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              SnackBarUtils.showInfo(
+            } else {
+              // Show error message if sync failed
+              SnackBarUtils.showError(
                 context,
-                message: 'Transcription is being processed. Upgrade to Premium for cloud sync!',
+                message: result.message,
               );
             }
-          });
-        }
+          }
+        });
 
         _resetToReadyState();
         // Fetch from local storage only (no API call needed)
         _refreshLocalVibes();
-        // Update vibe count
+        // Update vibe count (will be updated again after sync)
         await _loadVibeCountAndLimit();
       }
     } catch (e) {
@@ -536,11 +536,14 @@ class _JournalScreenState extends State<JournalScreen>
 
   Future<void> _loadVibeCountAndLimit() async {
     try {
-      // Get current vibe count from local database
-      final count = await _syncService.getVibesCount();
+      // Use backend's cloud_vibe_count as source of truth
+      // This ensures count reflects what's synced to backend
+      final count = _currentUserModel?.cloudVibeCount ?? 0;
 
-      // Determine max vibes based on premium status
-      final maxVibes = _userService.isPremium ? null : 10;
+      // Use backend's maxCloudVibes for the limit
+      final maxVibes = _userService.isPremium
+          ? null
+          : (_currentUserModel?.maxCloudVibes ?? 20);
 
       if (mounted) {
         setState(() {
@@ -677,11 +680,20 @@ class _JournalScreenState extends State<JournalScreen>
     if (_currentlyPlayingOrLoadingId != vibe.id) {
       setState(() => _currentlyPlayingOrLoadingId = vibe.id);
       try {
-        await _player.setUrl(vibe.audioPath);
+        // Use local path if available, otherwise fall back to audioPath
+        final audioPath = vibe.localAudioPath ?? vibe.audioPath;
+
+        // Check if it's a local file or URL
+        if (audioPath.startsWith('http://') || audioPath.startsWith('https://')) {
+          await _player.setUrl(audioPath);
+        } else {
+          // It's a local file path
+          await _player.setFilePath(audioPath);
+        }
         await _player.play();
       } catch (e) {
         if (mounted) {
-          SnackBarUtils.showError(context, message: 'Failed to play vibe');
+          SnackBarUtils.showError(context, message: 'Failed to play vibe: $e');
           setState(() => _currentlyPlayingOrLoadingId = null);
         }
       }
@@ -731,7 +743,16 @@ class _JournalScreenState extends State<JournalScreen>
                   // Action Buttons
                   _buildActionButtons(theme, isDark),
 
-                  const SizedBox(height: AppSpacing.xxxl),
+                  // Dynamic spacing - larger when buttons are shown
+                  AnimatedSize(
+                    duration: AppAnimations.normal,
+                    curve: Curves.easeInOutCubic,
+                    child: SizedBox(
+                      height: _recordingState == AppRecordingState.stopped
+                          ? AppSpacing.xxxl
+                          : AppSpacing.xl,
+                    ),
+                  ),
 
                   // Recent Vibes
                   _buildRecentVibesSection(theme, isDark),
@@ -756,25 +777,35 @@ class _JournalScreenState extends State<JournalScreen>
           textAlign: TextAlign.center,
         ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-              _getStatusMessage(),
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: AppColors.getTextPrimary(isDark),
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            )
-            .animate(delay: 100.ms)
-            .fadeIn(duration: 400.ms)
-            .slideY(begin: -0.2, end: 0),
-        // Vibe count badge
-        if (_maxVibes != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          _buildVibeCountBadge(theme, isDark)
-              .animate(delay: 200.ms)
-              .fadeIn(duration: 400.ms)
-              .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1)),
-        ],
+        SizedBox(
+          height: 32, // Fixed height to prevent layout shift
+          child: Center(
+            child: Text(
+                  _getStatusMessage(),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: AppColors.getTextPrimary(isDark),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+                .animate(delay: 100.ms)
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: -0.2, end: 0),
+          ),
+        ),
+        // Vibe count badge - fixed height container to prevent layout shift
+        const SizedBox(height: AppSpacing.md),
+        SizedBox(
+          height: 36, // Fixed height for badge
+          child: _maxVibes != null
+              ? _buildVibeCountBadge(theme, isDark)
+                  .animate(delay: 200.ms)
+                  .fadeIn(duration: 400.ms)
+                  .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1))
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
@@ -929,60 +960,66 @@ class _JournalScreenState extends State<JournalScreen>
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Orb with glow
-            ScaleTransition(
-              scale: _orbPulseAnimation,
-              child: GestureDetector(
-                onTap: () {
-                  _hapticService.medium();
-                  onPressed?.call();
-                },
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer glow
-                    if (_recordingState == AppRecordingState.recording)
-                      AnimatedBuilder(
-                        animation: _glowAnimation,
-                        builder: (context, child) {
-                          return Container(
-                            width: 200 + (progress.normalizedDbLevel * 40),
-                            height: 200 + (progress.normalizedDbLevel * 40),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  orbColor.withValues(
-                                    alpha: 0.4 * _glowAnimation.value,
+            // Orb with glow - fixed size container to prevent layout shift
+            SizedBox(
+              width: 240,
+              height: 240,
+              child: Center(
+                child: ScaleTransition(
+                  scale: _orbPulseAnimation,
+                  child: GestureDetector(
+                    onTap: () {
+                      _hapticService.medium();
+                      onPressed?.call();
+                    },
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer glow
+                        if (_recordingState == AppRecordingState.recording)
+                          AnimatedBuilder(
+                            animation: _glowAnimation,
+                            builder: (context, child) {
+                              return Container(
+                                width: 200 + (progress.normalizedDbLevel * 40),
+                                height: 200 + (progress.normalizedDbLevel * 40),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      orbColor.withValues(
+                                        alpha: 0.4 * _glowAnimation.value,
+                                      ),
+                                      Colors.transparent,
+                                    ],
                                   ),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    // Main orb
-                    Container(
-                      width: 160,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: AppColors.orbGradient(centerColor: orbColor),
-                        boxShadow: [
-                          BoxShadow(
-                            color: orbColor.withValues(alpha: 0.5),
-                            blurRadius: 30,
-                            spreadRadius:
-                                _recordingState == AppRecordingState.recording
-                                ? 10 + (progress.normalizedDbLevel * 15)
-                                : 10,
+                                ),
+                              );
+                            },
                           ),
-                        ],
-                      ),
-                      child: Icon(icon, size: 80, color: Colors.white),
+                        // Main orb
+                        Container(
+                          width: 160,
+                          height: 160,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: AppColors.orbGradient(centerColor: orbColor),
+                            boxShadow: [
+                              BoxShadow(
+                                color: orbColor.withValues(alpha: 0.5),
+                                blurRadius: 30,
+                                spreadRadius:
+                                    _recordingState == AppRecordingState.recording
+                                    ? 10 + (progress.normalizedDbLevel * 15)
+                                    : 10,
+                              ),
+                            ],
+                          ),
+                          child: Icon(icon, size: 80, color: Colors.white),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -999,8 +1036,10 @@ class _JournalScreenState extends State<JournalScreen>
               ),
             ),
 
-            if (_player.playing)
-              Text(
+            // Secondary duration text - always rendered to prevent layout shift
+            Opacity(
+              opacity: _player.playing ? 1.0 : 0.0,
+              child: Text(
                 'of ${_formatDuration(_duration.inMilliseconds)}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.getTextSecondary(
@@ -1008,23 +1047,30 @@ class _JournalScreenState extends State<JournalScreen>
                   ).withValues(alpha: 0.6),
                 ),
               ),
+            ),
 
-            // Amplitude bar
+            // Amplitude bar - fixed height container
             const SizedBox(height: AppSpacing.lg),
-            AnimatedContainer(
-              duration: AppAnimations.amplitudeUpdate,
+            SizedBox(
               height: 6,
-              width: _recordingState == AppRecordingState.recording
-                  ? (progress.normalizedDbLevel * 150).clamp(0.0, 150.0)
-                  : 0.0,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.getSecondary(isDark).withValues(alpha: 0.5),
-                    AppColors.getSecondary(isDark),
-                  ],
+              width: 150,
+              child: Center(
+                child: AnimatedContainer(
+                  duration: AppAnimations.amplitudeUpdate,
+                  height: 6,
+                  width: _recordingState == AppRecordingState.recording
+                      ? (progress.normalizedDbLevel * 150).clamp(0.0, 150.0)
+                      : 0.0,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.getSecondary(isDark).withValues(alpha: 0.5),
+                        AppColors.getSecondary(isDark),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusXs),
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusXs),
               ),
             ),
           ],
@@ -1036,28 +1082,32 @@ class _JournalScreenState extends State<JournalScreen>
   Widget _buildActionButtons(ThemeData theme, bool isDark) {
     final showActions = _recordingState == AppRecordingState.stopped;
 
-    return AnimatedOpacity(
+    return AnimatedSize(
       duration: AppAnimations.normal,
-      opacity: showActions ? 1.0 : 0.0,
-      child: showActions
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildActionButton(
-                  icon: Icons.delete_outline_rounded,
-                  label: 'Discard',
-                  color: AppColors.getError(isDark),
-                  onPressed: _discardRecording,
-                ),
-                _buildActionButton(
-                  icon: Icons.check_circle_outline_rounded,
-                  label: _isSavingVibe ? 'Saving...' : 'Save Vibe',
-                  color: AppColors.getSuccess(isDark),
-                  onPressed: _isSavingVibe ? null : _saveVibe,
-                ),
-              ],
-            ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3, end: 0)
-          : const SizedBox.shrink(),
+      curve: Curves.easeInOutCubic,
+      child: AnimatedOpacity(
+        duration: AppAnimations.normal,
+        opacity: showActions ? 1.0 : 0.0,
+        child: showActions
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Discard',
+                    color: AppColors.getError(isDark),
+                    onPressed: _discardRecording,
+                  ),
+                  _buildActionButton(
+                    icon: Icons.check_circle_outline_rounded,
+                    label: _isSavingVibe ? 'Saving...' : 'Save Vibe',
+                    color: AppColors.getSuccess(isDark),
+                    onPressed: _isSavingVibe ? null : _saveVibe,
+                  ),
+                ],
+              ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3, end: 0)
+            : const SizedBox.shrink(),
+      ),
     );
   }
 
@@ -1150,12 +1200,15 @@ class _JournalScreenState extends State<JournalScreen>
 
     return AnimatedCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      onTap: () {
+      onTap: () async {
         _hapticService.light();
-        Navigator.push(
+        await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => VibeDetailScreen(vibe: vibe)),
         );
+        // Refresh the vibes list after returning from detail screen
+        // This ensures we show updated transcription/mood data
+        _refreshLocalVibes();
       },
       child: Row(
         children: [
