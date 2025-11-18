@@ -630,6 +630,14 @@ class _JournalScreenState extends State<JournalScreen>
       }
     }
 
+    // Refresh user data to get updated cloud_vibe_count
+    await _userService.fetchAndUpdateUser();
+    if (mounted) {
+      final updatedUser = _userService.currentUser;
+      setState(() => _currentUserModel = updatedUser);
+      await _loadVibeCountAndLimit();
+    }
+
     // Fetch latest vibes (both premium and free users)
     await _fetchRecentVibes();
 
@@ -1202,10 +1210,21 @@ class _JournalScreenState extends State<JournalScreen>
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       onTap: () async {
         _hapticService.light();
-        await Navigator.push(
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => VibeDetailScreen(vibe: vibe)),
         );
+
+        // If vibe was deleted (result == true), refresh user data
+        if (result == true) {
+          // Refresh user data from backend to get updated cloud_vibe_count
+          await _userService.fetchAndUpdateUser();
+          // Update the displayed vibe count
+          final updatedUser = _userService.currentUser;
+          setState(() => _currentUserModel = updatedUser);
+          await _loadVibeCountAndLimit();
+        }
+
         // Refresh the vibes list after returning from detail screen
         // This ensures we show updated transcription/mood data
         _refreshLocalVibes();
