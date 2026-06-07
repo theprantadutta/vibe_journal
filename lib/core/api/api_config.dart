@@ -7,8 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class ApiConfig {
   // Base URLs (loaded from .env)
   static String get productionBaseUrl =>
-      dotenv.env['PROD_API_BASE_URL'] ??
-      'https://pranta.vps.webdock.cloud/vibejournal';
+      dotenv.env['PROD_API_BASE_URL'] ?? 'https://vibejournal.pranta.dev';
   static String get developmentBaseUrl =>
       dotenv.env['DEV_API_BASE_URL'] ?? 'http://localhost:8000';
 
