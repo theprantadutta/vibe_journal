@@ -57,10 +57,10 @@ class _PremiumFeaturesScreenState extends State<PremiumFeaturesScreen> {
       'gradient': [Color(0xFFfa709a), Color(0xFFfee140)],
     },
     {
-      'icon': Icons.lock_person_rounded,
-      'title': 'Biometric Lock',
+      'icon': Icons.flash_on_rounded,
+      'title': 'Priority Transcription',
       'description':
-          'Protect your private thoughts with fingerprint or face recognition',
+          'Your vibes jump the queue and get transcribed before everyone else',
       'gradient': [Color(0xFF30cfd0), Color(0xFF330867)],
     },
   ];
