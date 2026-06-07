@@ -119,10 +119,11 @@ class _NotificationSettingsScreenState
       });
     } catch (e) {
       print("Error updating setting in Firestore: $e");
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Could not save setting. Check your connection."),
-          backgroundColor: AppColors.error,
+        SnackBar(
+          content: const Text("Could not save setting. Check your connection."),
+          backgroundColor: AppColors.getError(isDark),
         ),
       );
 
@@ -215,48 +216,54 @@ class _NotificationSettingsScreenState
     required bool isUpdating,
     required ValueChanged<bool> onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // We use a regular ListTile to have full control over the trailing widget
     return ListTile(
-      leading: Icon(icon, color: AppColors.textSecondary),
+      leading: Icon(icon, color: AppColors.getTextSecondary(isDark)),
       title: Text(title),
-      subtitle: Text(subtitle, style: TextStyle(color: AppColors.textHint)),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: AppColors.getTextHint(isDark)),
+      ),
       // The onTap of the whole tile will also toggle the switch
       onTap: isUpdating ? null : () => onChanged(!value),
       trailing: isUpdating
           // If it's updating, show a loading spinner
-          ? const SizedBox(
+          ? SizedBox(
               width: 24,
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: AppColors.primary,
+                color: AppColors.getPrimary(isDark),
               ),
             )
           // Otherwise, show the actual Switch
           : Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: AppColors.secondary,
+              activeThumbColor: AppColors.getSecondary(isDark),
             ),
     );
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
       child: Text(
         title.toUpperCase(),
         style: Theme.of(
           context,
-        ).textTheme.labelSmall?.copyWith(color: AppColors.textHint),
+        ).textTheme.labelSmall?.copyWith(color: AppColors.getTextHint(isDark)),
       ),
     );
   }
 
   Widget _buildSettingsGroup({required List<Widget> children}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.getSurface(isDark),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(children: children),

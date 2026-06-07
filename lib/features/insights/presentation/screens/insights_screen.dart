@@ -3,20 +3,24 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:just_audio/just_audio.dart' as ja;
-import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:vibe_journal/features/premium/presentation/screens/premium_features_screen.dart';
 import '../../../../core/services/service_locator.dart';
 import '../../../../core/services/user_service.dart';
+import '../../../../config/theme/app_spacing.dart';
+import '../../../../config/theme/app_animations.dart';
+import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/sound_service.dart';
+import '../../../../core/widgets/animated_card.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
+import '../../../journal/data/repositories/vibe_repository.dart';
 import '../../../../config/theme/app_colors.dart';
 
 enum ChartTimeRange { week, month, all }
@@ -33,6 +37,11 @@ class _InsightsScreenState extends State<InsightsScreen> {
   bool _isLoading = true;
   UserModel? _userModel;
   List<VibeModel> _allVibes = [];
+
+  final _hapticService = HapticService();
+  final _soundService = SoundService();
+  final _vibeRepository = locator<VibeRepository>();
+  final _userService = locator<UserService>();
 
   // Audio Player for "Future Me"
   late final ja.AudioPlayer _player;
@@ -75,24 +84,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
   }
 
   Future<void> _loadInsights() async {
-    if (locator.isRegistered<UserModel>()) {
-      _userModel = locator<UserModel>();
+    // Get user from service
+    if (_userService.isUserLoggedIn) {
+      _userModel = _userService.currentUser;
     } else {
-      final currentUserAuth = FirebaseAuth.instance.currentUser;
-      if (currentUserAuth != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUserAuth.uid)
-            .get();
-        final userService = locator<UserService>();
-        if (userDoc.exists) {
-          final model = UserModel.fromFirestore(userDoc);
-          await userService.updateUser(model);
-          _userModel = model;
-        } else {
-          FirebaseAuth.instance.signOut();
-          userService.clearUser();
-        }
+      // Try to fetch user from backend if not in memory
+      final fetchSuccess = await _userService.fetchAndUpdateUser();
+      if (fetchSuccess && _userService.isUserLoggedIn) {
+        _userModel = _userService.currentUser;
       }
     }
 
@@ -107,29 +106,38 @@ class _InsightsScreenState extends State<InsightsScreen> {
     final user = _userModel;
     if (user == null) return;
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('vibes')
-        .where('userId', isEqualTo: user.uid)
-        .orderBy('createdAt') // Fetch oldest first for streak/chart calculation
-        .get();
+    try {
+      // Premium users: Fetch from backend, Free users: Fetch from local storage
+      final response = _userService.isPremium
+          ? await _vibeRepository.fetchVibes(pageSize: 100)
+          : await _vibeRepository.getLocalVibes();
 
-    _allVibes = snapshot.docs
-        .map(
-          (doc) => VibeModel.fromFirestore(
-            doc as DocumentSnapshot<Map<String, dynamic>>,
-          ),
-        )
-        .toList();
+      if (!response.isSuccess || response.data == null) {
+        if (kDebugMode) {
+          print("Error fetching vibes: ${response.error}");
+        }
+        return;
+      }
 
-    // Process data for free insights
-    _moodCounts = {'positive': 0, 'negative': 0, 'neutral': 0, 'unknown': 0};
-    for (var vibe in _allVibes) {
-      _moodCounts.update(vibe.mood, (v) => v + 1, ifAbsent: () => 1);
+      _allVibes = response.data!;
+
+      // Sort by created date (oldest first for streak/chart calculation)
+      _allVibes.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      // Process data for free insights
+      _moodCounts = {'positive': 0, 'negative': 0, 'neutral': 0, 'unknown': 0};
+      for (var vibe in _allVibes) {
+        _moodCounts.update(vibe.mood, (v) => v + 1, ifAbsent: () => 1);
+      }
+      _longestStreak = _calculateLongestStreak();
+
+      // Process data for premium charts
+      _updateChartData();
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error fetching and processing vibe data: $e");
+      }
     }
-    _longestStreak = _calculateLongestStreak();
-
-    // Process data for premium charts
-    _updateChartData();
   }
 
   void _updateChartData() {
@@ -199,6 +207,16 @@ class _InsightsScreenState extends State<InsightsScreen> {
   }
 
   Future<void> _playFutureMeMashup() async {
+    // Runtime premium check
+    final userService = locator<UserService>();
+    if (!userService.isPremium) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PremiumFeaturesScreen()),
+      );
+      return;
+    }
+
     if (_player.playing) {
       _player.stop();
       return;
@@ -222,9 +240,17 @@ class _InsightsScreenState extends State<InsightsScreen> {
     try {
       final List<ja.AudioSource> playlist = [];
       for (var vibe in recentVibes) {
-        final url = await FirebaseStorage.instance
-            .ref(vibe.audioPath)
-            .getDownloadURL();
+        // Get audio URL from backend
+        final urlResponse = await _vibeRepository.getAudioUrl(vibe.id);
+
+        if (!urlResponse.isSuccess || urlResponse.data == null) {
+          if (kDebugMode) {
+            print("Failed to get audio URL for vibe ${vibe.id}");
+          }
+          continue; // Skip this vibe if we can't get the URL
+        }
+
+        final url = urlResponse.data!;
         playlist.add(
           ja.ClippingAudioSource(
             child: ja.AudioSource.uri(Uri.parse(url)),
@@ -285,24 +311,29 @@ class _InsightsScreenState extends State<InsightsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      return Center(
+        child: CircularProgressIndicator(color: AppColors.getPrimary(isDark)),
       );
     }
     if (_userModel == null) {
       return const Center(child: Text("Could not load user data."));
     }
-    bool isPremium = _userModel!.plan == 'premium';
+    final userService = locator<UserService>();
+    bool isPremium = userService.isPremium;
 
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Your Vibe Summary", style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 20),
+            Text("Your Vibe Summary", style: theme.textTheme.headlineSmall)
+                .animate()
+                .fadeIn(duration: AppAnimations.fast)
+                .slideY(begin: -0.2, end: 0),
+            SizedBox(height: AppSpacing.sectionSpacing),
             Row(
               children: [
                 Expanded(
@@ -310,36 +341,41 @@ class _InsightsScreenState extends State<InsightsScreen> {
                     "Total Vibes",
                     _allVibes.length.toString(),
                     Icons.all_inclusive_rounded,
-                    AppColors.secondary,
+                    AppColors.getSecondary(isDark),
+                    0,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: AppSpacing.lg),
                 Expanded(
                   child: _buildStatCard(
                     "Longest Streak",
                     "$_longestStreak Days",
                     Icons.local_fire_department_rounded,
-                    AppColors.primary,
+                    AppColors.getPrimary(isDark),
+                    1,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: AppSpacing.sectionSpacing),
             _buildPieChartCard(theme),
-            const SizedBox(height: 40),
-            Text("Advanced Insights", style: theme.textTheme.headlineSmall),
+            SizedBox(height: AppSpacing.sectionSpacingLarge),
+            Text("Advanced Insights", style: theme.textTheme.headlineSmall)
+                .animate()
+                .fadeIn(duration: AppAnimations.fast, delay: 400.ms)
+                .slideY(begin: -0.2, end: 0),
             Text(
               "Go deeper into your emotional patterns.",
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textHint,
+                color: AppColors.getTextHint(isDark),
               ),
-            ),
-            const SizedBox(height: 20),
+            ).animate().fadeIn(duration: AppAnimations.fast, delay: 450.ms),
+            SizedBox(height: AppSpacing.sectionSpacing),
             _PremiumFeatureLock(
               isPremium: isPremium,
               child: _buildLineChartCard(theme),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: AppSpacing.sectionSpacing),
             _PremiumFeatureLock(
               isPremium: isPremium,
               child: _buildFutureMeCard(theme),
@@ -355,294 +391,340 @@ class _InsightsScreenState extends State<InsightsScreen> {
     String value,
     IconData icon,
     Color color,
+    int index,
   ) {
-    return Card(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(color: Colors.white),
-            ),
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textHint),
-            ),
-          ],
-        ),
-      ),
-    );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AnimatedCard(
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.all(AppSpacing.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: AppSpacing.iconLg, color: color),
+              SizedBox(height: AppSpacing.md),
+              Text(
+                value,
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                ),
+              ),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.getTextHint(isDark),
+                ),
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(
+          duration: AppAnimations.fast,
+          delay: AppAnimations.staggerDelayFor(index),
+        )
+        .slideY(
+          begin: 0.2,
+          end: 0,
+          duration: AppAnimations.fast,
+          delay: AppAnimations.staggerDelayFor(index),
+        );
   }
 
   Widget _buildPieChartCard(ThemeData theme) {
-    final totalCount = _moodCounts.values.reduce((a, b) => a + b);
-    if (totalCount == 0) {
-      return Card(
-        color: AppColors.surface,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: Text(
-              "Record some vibes to see your mood distribution!",
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: AppColors.textHint,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    final isDark = theme.brightness == Brightness.dark;
 
-    return Card(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Mood Distribution", style: theme.textTheme.titleLarge),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  pieTouchData: PieTouchData(
-                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                      setState(() {
-                        if (!event.isInterestedForInteractions ||
-                            pieTouchResponse == null ||
-                            pieTouchResponse.touchedSection == null) {
-                          _touchedIndex = -1;
-                          return;
-                        }
-                        _touchedIndex = pieTouchResponse
-                            .touchedSection!
-                            .touchedSectionIndex;
-                      });
-                    },
-                  ),
-                  borderData: FlBorderData(show: false),
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 40,
-                  sections: _moodCounts.entries
-                      .mapIndexed((index, entry) {
-                        final isTouched = index == _touchedIndex;
-                        final radius = isTouched ? 60.0 : 50.0;
-                        final percentage = (entry.value / totalCount * 100)
-                            .round();
-                        if (entry.value == 0) return null;
-                        return PieChartSectionData(
-                          color: AppColors.moodColors[entry.key],
-                          value: entry.value.toDouble(),
-                          title: '$percentage%',
-                          radius: radius,
-                          titleStyle: TextStyle(
-                            fontSize: isTouched ? 16.0 : 14.0,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.5),
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                        );
-                      })
-                      // ignore: deprecated_member_use
-                      .whereNotNull()
-                      .toList(),
+    // Check if empty before calling reduce to avoid crash
+    if (_moodCounts.isEmpty ||
+        _moodCounts.values.every((count) => count == 0)) {
+      return AnimatedCard(
+            color: AppColors.getSurface(isDark),
+            padding: EdgeInsets.all(AppSpacing.sectionSpacing),
+            child: Center(
+              child: Text(
+                "Record some vibes to see your mood distribution!",
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: AppColors.getTextHint(isDark),
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
+          )
+          .animate()
+          .fadeIn(duration: AppAnimations.fast, delay: 100.ms)
+          .slideY(begin: 0.2, end: 0);
+    }
+
+    final totalCount = _moodCounts.values.reduce((a, b) => a + b);
+
+    return AnimatedCard(
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.all(AppSpacing.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Mood Distribution", style: theme.textTheme.titleLarge),
+              SizedBox(height: AppSpacing.sectionSpacing),
+              SizedBox(
+                height: 200,
+                child: PieChart(
+                  PieChartData(
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                        _hapticService.light(); // Add haptic feedback
+                        setState(() {
+                          if (!event.isInterestedForInteractions ||
+                              pieTouchResponse == null ||
+                              pieTouchResponse.touchedSection == null) {
+                            _touchedIndex = -1;
+                            return;
+                          }
+                          _touchedIndex = pieTouchResponse
+                              .touchedSection!
+                              .touchedSectionIndex;
+                        });
+                      },
+                    ),
+                    borderData: FlBorderData(show: false),
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: _moodCounts.entries
+                        .mapIndexed((index, entry) {
+                          final isTouched = index == _touchedIndex;
+                          final radius = isTouched ? 60.0 : 50.0;
+                          final percentage = (entry.value / totalCount * 100)
+                              .round();
+                          if (entry.value == 0) return null;
+                          return PieChartSectionData(
+                            color: AppColors.getMoodColor(entry.key, isDark),
+                            value: entry.value.toDouble(),
+                            title: '$percentage%',
+                            radius: radius,
+                            titleStyle: TextStyle(
+                              fontSize: isTouched ? 16.0 : 14.0,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          );
+                        })
+                        // ignore: deprecated_member_use
+                        .whereNotNull()
+                        .toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(duration: AppAnimations.fast, delay: 150.ms)
+        .slideY(begin: 0.2, end: 0);
   }
 
   Widget _buildLineChartCard(ThemeData theme) {
-    return Card(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Mood Over Time", style: theme.textTheme.titleLarge),
-            const SizedBox(height: 16),
-            SegmentedButton<ChartTimeRange>(
-              style: SegmentedButton.styleFrom(
-                backgroundColor: AppColors.inputFill,
-                foregroundColor: AppColors.textSecondary,
-                selectedForegroundColor: AppColors.onPrimary,
-                selectedBackgroundColor: AppColors.primary,
+    final isDark = theme.brightness == Brightness.dark;
+    return AnimatedCard(
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.all(AppSpacing.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Mood Over Time", style: theme.textTheme.titleLarge),
+              SizedBox(height: AppSpacing.lg),
+              SegmentedButton<ChartTimeRange>(
+                style: SegmentedButton.styleFrom(
+                  backgroundColor: AppColors.getInputFill(isDark),
+                  foregroundColor: AppColors.getTextSecondary(isDark),
+                  selectedForegroundColor: AppColors.getOnPrimary(isDark),
+                  selectedBackgroundColor: AppColors.getPrimary(isDark),
+                ),
+                segments: const [
+                  ButtonSegment(
+                    value: ChartTimeRange.week,
+                    label: Text('7D'),
+                    icon: Icon(Icons.view_week_outlined, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: ChartTimeRange.month,
+                    label: Text('30D'),
+                    icon: Icon(Icons.calendar_view_month_outlined, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: ChartTimeRange.all,
+                    label: Text('All'),
+                    icon: Icon(Icons.all_inclusive_rounded, size: 18),
+                  ),
+                ],
+                selected: {_selectedTimeRange},
+                onSelectionChanged: (newSelection) {
+                  _hapticService.selection(); // Add haptic feedback
+                  setState(() {
+                    _selectedTimeRange = newSelection.first;
+                    _updateChartData();
+                  });
+                },
               ),
-              segments: const [
-                ButtonSegment(
-                  value: ChartTimeRange.week,
-                  label: Text('7D'),
-                  icon: Icon(Icons.view_week_outlined, size: 18),
-                ),
-                ButtonSegment(
-                  value: ChartTimeRange.month,
-                  label: Text('30D'),
-                  icon: Icon(Icons.calendar_view_month_outlined, size: 18),
-                ),
-                ButtonSegment(
-                  value: ChartTimeRange.all,
-                  label: Text('All'),
-                  icon: Icon(Icons.all_inclusive_rounded, size: 18),
-                ),
-              ],
-              selected: {_selectedTimeRange},
-              onSelectionChanged: (newSelection) {
-                setState(() {
-                  _selectedTimeRange = newSelection.first;
-                  _updateChartData();
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 200,
-              child: _moodChartSpots.isEmpty
-                  ? Center(
-                      child: Text(
-                        "Not enough data for this time range.",
-                        style: TextStyle(color: AppColors.textHint),
-                      ),
-                    )
-                  : LineChart(
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          getDrawingHorizontalLine: (v) => FlLine(
-                            color: AppColors.inputFill,
-                            strokeWidth: 1,
+              SizedBox(height: AppSpacing.xl),
+              SizedBox(
+                height: 200,
+                child: _moodChartSpots.isEmpty
+                    ? Center(
+                        child: Text(
+                          "Not enough data for this time range.",
+                          style: TextStyle(
+                            color: AppColors.getTextHint(isDark),
                           ),
                         ),
-                        titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
-                              getTitlesWidget: (v, m) {
-                                if (v == 1 || v == 0 || v == -1) {
-                                  return Text(
-                                    v.toStringAsFixed(0),
-                                    style: theme.textTheme.bodySmall,
-                                  );
-                                }
-                                return const Text('');
-                              },
+                      )
+                    : LineChart(
+                        LineChartData(
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            getDrawingHorizontalLine: (v) => FlLine(
+                              color: AppColors.getInputFill(isDark),
+                              strokeWidth: 1,
                             ),
                           ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 30,
-                              interval: (_maxX - _minX) / 4,
-                              getTitlesWidget: (v, m) => Text(
-                                DateFormat.MMMd().format(
-                                  DateTime.fromMillisecondsSinceEpoch(
-                                    v.toInt(),
-                                  ),
-                                ),
-                                style: theme.textTheme.bodySmall,
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 40,
+                                getTitlesWidget: (v, m) {
+                                  if (v == 1 || v == 0 || v == -1) {
+                                    return Text(
+                                      v.toStringAsFixed(0),
+                                      style: theme.textTheme.bodySmall,
+                                    );
+                                  }
+                                  return const Text('');
+                                },
                               ),
                             ),
-                          ),
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                        ),
-                        borderData: FlBorderData(
-                          show: true,
-                          border: Border.all(color: AppColors.inputFill),
-                        ),
-                        minX: _minX,
-                        maxX: _maxX,
-                        minY: -1.1,
-                        maxY: 1.1,
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: _moodChartSpots,
-                            isCurved: true,
-                            gradient: const LinearGradient(
-                              colors: [AppColors.primary, AppColors.secondary],
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 30,
+                                interval: (_maxX - _minX) / 4,
+                                getTitlesWidget: (v, m) => Text(
+                                  DateFormat.MMMd().format(
+                                    DateTime.fromMillisecondsSinceEpoch(
+                                      v.toInt(),
+                                    ),
+                                  ),
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
                             ),
-                            barWidth: 4,
-                            isStrokeCapRound: true,
-                            dotData: FlDotData(
-                              show: _moodChartSpots.length < 15,
+                            topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
                             ),
-                            belowBarData: BarAreaData(
-                              show: true,
+                            rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                          ),
+                          borderData: FlBorderData(
+                            show: true,
+                            border: Border.all(
+                              color: AppColors.getInputFill(isDark),
+                            ),
+                          ),
+                          minX: _minX,
+                          maxX: _maxX,
+                          minY: -1.1,
+                          maxY: 1.1,
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: _moodChartSpots,
+                              isCurved: true,
                               gradient: LinearGradient(
                                 colors: [
-                                  AppColors.primary.withValues(alpha: 0.2),
-                                  AppColors.secondary.withValues(alpha: 0.2),
+                                  AppColors.getPrimary(isDark),
+                                  AppColors.getSecondary(isDark),
                                 ],
                               ),
+                              barWidth: 4,
+                              isStrokeCapRound: true,
+                              dotData: FlDotData(
+                                show: _moodChartSpots.length < 15,
+                              ),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.getPrimary(
+                                      isDark,
+                                    ).withValues(alpha: 0.2),
+                                    AppColors.getSecondary(
+                                      isDark,
+                                    ).withValues(alpha: 0.2),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(duration: AppAnimations.fast, delay: 500.ms)
+        .slideY(begin: 0.2, end: 0);
   }
 
   Widget _buildFutureMeCard(ThemeData theme) {
-    return Card(
-      color: AppColors.surface,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 12,
-        ),
-        leading: Icon(
-          Icons.forward_5_rounded,
-          color: AppColors.primary,
-          size: 32,
-        ),
-        title: Text("Future Me Playback", style: theme.textTheme.titleLarge),
-        subtitle: Text(
-          "A mashup of your vibes from the last 30 days.",
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: AppColors.textHint,
+    final isDark = theme.brightness == Brightness.dark;
+    return AnimatedCard(
+          color: AppColors.getSurface(isDark),
+          padding: EdgeInsets.zero,
+          child: ListTile(
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.sectionSpacing,
+              vertical: AppSpacing.md,
+            ),
+            leading: Icon(
+              Icons.forward_5_rounded,
+              color: AppColors.getPrimary(isDark),
+              size: AppSpacing.iconLg,
+            ),
+            title: Text(
+              "Future Me Playback",
+              style: theme.textTheme.titleLarge,
+            ),
+            subtitle: Text(
+              "A mashup of your vibes from the last 30 days.",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.getTextHint(isDark),
+              ),
+            ),
+            trailing: IconButton(
+              icon: Icon(
+                _isMashupPlaying
+                    ? Icons.pause_circle_filled_rounded
+                    : Icons.play_circle_filled_rounded,
+                color: AppColors.getPrimary(isDark),
+                size: AppSpacing.iconLg,
+              ),
+              onPressed: () {
+                _hapticService.audioPlayPause(); // Add haptic feedback
+                _playFutureMeMashup();
+              },
+            ),
           ),
-        ),
-        trailing: IconButton(
-          icon: Icon(
-            _isMashupPlaying
-                ? Icons.pause_circle_filled_rounded
-                : Icons.play_circle_filled_rounded,
-            color: AppColors.primary,
-            size: 32,
-          ),
-          onPressed: _playFutureMeMashup,
-        ),
-      ),
-    );
+        )
+        .animate()
+        .fadeIn(duration: AppAnimations.fast, delay: 550.ms)
+        .slideY(begin: 0.2, end: 0);
   }
 }
 
@@ -657,7 +739,9 @@ class _PremiumFeatureLock extends StatelessWidget {
           ? null
           : () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const UpgradeScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const PremiumFeaturesScreen(),
+                ),
               );
             },
       child: Stack(

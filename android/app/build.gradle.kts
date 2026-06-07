@@ -11,9 +11,9 @@ plugins {
 android {
     namespace = "com.pranta.vibejournal"
     // compileSdk = flutter.compileSdkVersion
-    compileSdk = 35
+    compileSdk = 36
     // ndkVersion = flutter.ndkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "29.0.13113456"
 
     compileOptions {
         // Flag to enable support for the new language APIs

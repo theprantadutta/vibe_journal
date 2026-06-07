@@ -8,6 +8,28 @@
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>NSFaceIDUsageDescription</key>
 		<string>VibeJournal uses Face ID to securely lock and protect your journal entries.</string>
+
+		<!-- Google Sign In Configuration -->
+		<!-- TODO: Replace these values with actual values from GoogleService-Info.plist after downloading from Firebase Console -->
+		<key>GIDClientID</key>
+		<string>YOUR_IOS_CLIENT_ID_FROM_GOOGLESERVICE_INFO_PLIST</string>
+		<key>GIDServerClientID</key>
+		<string>303473085155-08rtqvbftq2laabjcucnv0uln307dnoe.apps.googleusercontent.com</string>
+
+		<!-- URL Schemes for Google Sign In -->
+		<!-- TODO: Update CFBundleURLSchemes with REVERSED_CLIENT_ID from GoogleService-Info.plist -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.YOUR-REVERSED-CLIENT-ID-HERE</string>
+				</array>
+			</dict>
+		</array>
+
 		<key>CFBundleDisplayName</key>
 	<string>Vibe Journal</string>
 		<key>CFBundleExecutable</key>

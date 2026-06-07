@@ -1,16 +1,26 @@
-// ignore_for_file: use_build_context_synchronously
-
+// lib/features/settings/presentation/screens/settings_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vibe_journal/config/theme/app_colors.dart';
-import 'package:vibe_journal/core/services/service_locator.dart';
-import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
-import 'package:vibe_journal/features/legal/presentation/terms_and_conditions_content.dart';
-import 'package:vibe_journal/features/premium/presentation/screens/upgrade_screen.dart';
-import 'package:vibe_journal/features/account/presentation/screens/profile_screen.dart';
 
+import '../../../../config/theme/app_colors.dart';
+import '../../../../config/theme/app_spacing.dart';
+import '../../../../config/theme/theme_provider.dart';
 import '../../../../core/services/biometric_auth_service.dart';
+import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/service_locator.dart';
+import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/sync_service.dart';
+import '../../../../core/services/user_service.dart';
+import '../../../../core/widgets/animated_card.dart';
+import '../../../../core/widgets/snackbar_utils.dart';
+import '../../../account/presentation/screens/profile_screen.dart';
+import '../../../journal/data/repositories/vibe_repository.dart';
 import '../../../legal/presentation/privacy_policy_content.dart';
+import '../../../legal/presentation/terms_and_conditions_content.dart';
+import '../../../premium/presentation/screens/subscription_management_screen.dart';
+import '../../../premium/presentation/screens/premium_features_screen.dart';
 import 'notification_settings_screen.dart';
 
 const String kBiometricLockEnabled = 'biometric_lock_enabled';
@@ -23,276 +33,758 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final UserModel _userModel = locator<UserModel>();
+  final _userService = locator<UserService>();
+  final _syncService = locator<SyncService>();
+  final _vibeRepository = locator<VibeRepository>();
+  final _hapticService = HapticService();
+  final _soundService = SoundService();
+
   bool _biometricLockEnabled = false;
   bool _isLoadingBiometrics = true;
+  bool _hapticsEnabled = true;
+  bool _soundsEnabled = false;
+  bool _isSyncing = false;
+  bool _isClearingCache = false;
+  int _pendingVibesCount = 0;
+  int _totalVibesCount = 0;
+  int _offlineVibesCount = 0;
+  int _audioCacheSize = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadBiometricSetting();
+    _loadSettings();
   }
 
-  Future<void> _loadBiometricSetting() async {
+  Future<void> _loadSettings() async {
     final preferences = await SharedPreferences.getInstance();
     setState(() {
       _biometricLockEnabled =
           preferences.getBool(kBiometricLockEnabled) ?? false;
+      _hapticsEnabled = _hapticService.isEnabled;
+      _soundsEnabled = _soundService.isEnabled;
       _isLoadingBiometrics = false;
     });
+
+    // Load sync and cache information if premium
+    if (_userService.isPremium) {
+      _loadSyncInformation();
+    }
+  }
+
+  Future<void> _loadSyncInformation() async {
+    try {
+      // Load vibes count
+      final pendingCount = await _syncService.getVibesCount();
+
+      // Load audio cache size
+      final cacheSize = await _vibeRepository.getAudioCacheSize();
+
+      // Load total vibes and offline count from local vibes
+      final localVibesResponse = await _vibeRepository.getLocalVibes();
+      final localVibes = localVibesResponse.data ?? [];
+      final offlineCount = localVibes.where((v) => v.isAudioDownloaded).length;
+
+      if (mounted) {
+        setState(() {
+          _pendingVibesCount = pendingCount;
+          _audioCacheSize = cacheSize;
+          _totalVibesCount = localVibes.length;
+          _offlineVibesCount = offlineCount;
+        });
+      }
+    } catch (e) {
+      // Silently fail - not critical
+      debugPrint('Error loading sync information: $e');
+    }
+  }
+
+  Future<void> _syncVibes() async {
+    if (_isSyncing || !_userService.isPremium) return;
+
+    setState(() => _isSyncing = true);
+    _hapticService.light();
+
+    final result = await _syncService.syncPendingVibes();
+
+    if (mounted) {
+      setState(() => _isSyncing = false);
+
+      if (result.success) {
+        SnackBarUtils.showSuccess(context, message: result.message);
+        _hapticService.success();
+        _loadSyncInformation(); // Refresh all sync info
+      } else {
+        SnackBarUtils.showError(context, message: result.message);
+        _hapticService.error();
+      }
+    }
+  }
+
+  Future<void> _clearAudioCache() async {
+    if (_isClearingCache || !_userService.isPremium) return;
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Audio Cache'),
+        content: Text(
+          'This will delete $_offlineVibesCount downloaded audio files (${_formatFileSize(_audioCacheSize)}). '
+          'You can re-download them later by syncing again.\n\n'
+          'Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isClearingCache = true);
+    _hapticService.light();
+
+    try {
+      final deletedCount = await _vibeRepository.clearAudioCache();
+
+      if (mounted) {
+        setState(() => _isClearingCache = false);
+
+        SnackBarUtils.showSuccess(
+          context,
+          message: 'Cleared $deletedCount audio files',
+        );
+        _hapticService.success();
+        _loadSyncInformation(); // Refresh cache info
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isClearingCache = false);
+
+        SnackBarUtils.showError(context, message: 'Failed to clear cache: $e');
+        _hapticService.error();
+      }
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  String _formatLastSyncTime() {
+    final lastSync = _syncService.lastSyncTime;
+    if (lastSync == null) return 'Never';
+
+    final now = DateTime.now();
+    final difference = now.difference(lastSync);
+
+    if (difference.inSeconds < 60) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    if (difference.inDays == 1) return 'Yesterday';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+
+    // Format as date for older syncs
+    return '${lastSync.day}/${lastSync.month}/${lastSync.year}';
   }
 
   Future<void> _onBiometricLockChanged(bool newValue) async {
     if (newValue) {
-      // If turning ON, first authenticate to confirm it's the user
       final didAuthenticate = await BiometricAuthService.authenticate(
         'Please authenticate to enable Biometric Lock',
       );
       if (didAuthenticate && mounted) {
-        // If authentication succeeds, update the state and save the preference
         setState(() => _biometricLockEnabled = true);
         final preferences = await SharedPreferences.getInstance();
         await preferences.setBool(kBiometricLockEnabled, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Biometric Lock Enabled'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
+        if (mounted) {
+          SnackBarUtils.showSuccess(context, message: 'Biometric Lock Enabled');
+          _hapticService.success();
+        }
       }
     } else {
-      // If turning OFF, no authentication is needed
       setState(() => _biometricLockEnabled = false);
       final preferences = await SharedPreferences.getInstance();
       await preferences.setBool(kBiometricLockEnabled, false);
+      if (mounted) {
+        _hapticService.light();
+      }
+    }
+  }
+
+  Future<void> _onHapticsChanged(bool value) async {
+    await _hapticService.setEnabled(value);
+    setState(() => _hapticsEnabled = value);
+    if (value) {
+      _hapticService.success();
+    }
+  }
+
+  Future<void> _onSoundsChanged(bool value) async {
+    await _soundService.setEnabled(value);
+    setState(() => _soundsEnabled = value);
+    if (value) {
+      _soundService.success();
+    } else {
+      _hapticService.light();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = _userModel.plan == 'premium';
+    final isPremium = _userService.isPremium;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: const Text('Settings'), centerTitle: false),
       body: ListView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
         children: [
-          _buildSectionHeader(context, "Account"),
+          // Account Section
+          _buildSectionHeader(context, 'Account'),
           _buildSettingsGroup(
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.person_outline_rounded,
-                  color: AppColors.textSecondary,
-                ),
-                title: const Text('Manage Account'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                ),
-              ),
-              if (!isPremium) ...[
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: const Icon(
-                    Icons.star_purple500_outlined,
-                    color: AppColors.secondary,
-                  ),
-                  title: const Text('Upgrade to Premium'),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const UpgradeScreen()),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, "Preferences"),
-          _buildSettingsGroup(
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.notifications_outlined,
-                  color: AppColors.textSecondary,
-                ),
-                title: const Text('Notification Settings'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationSettingsScreen(),
-                  ),
-                ),
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              // --- HERE IS THE UPDATED WIDGET ---
-              if (_isLoadingBiometrics)
-                const ListTile(title: Text("Loading Biometric Settings..."))
-              else
-                SwitchListTile(
-                  secondary: Icon(
-                    Icons.fingerprint_rounded,
-                    color: isPremium
-                        ? AppColors.textSecondary
-                        : AppColors.textDisabled,
-                  ),
-                  title: Text(
-                    'Biometric Lock',
-                    style: TextStyle(
-                      color: isPremium
-                          ? AppColors.textPrimary
-                          : AppColors.textDisabled,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Secure your journal with Face ID / Fingerprint',
-                    style: TextStyle(
-                      color: isPremium
-                          ? AppColors.textHint
-                          : AppColors.textDisabled,
-                    ),
-                  ),
-                  value: _biometricLockEnabled,
-                  onChanged: isPremium ? _onBiometricLockChanged : null,
-                  activeColor: AppColors.secondary,
-                ),
-              if (!isPremium)
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: 16.0,
-                    right: 16,
-                    bottom: 8,
-                    top: 4,
-                  ),
-                  child: Text(
-                    'Upgrade to Premium to secure your journal with biometrics.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
-                  ),
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, "Preferences"),
-          _buildSettingsGroup(
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.notifications_outlined,
-                  color: AppColors.textSecondary,
-                ),
-                title: const Text('Notification Settings'),
-                subtitle: const Text('Manage your reminders and alerts'),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textHint,
-                ),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationSettingsScreen(),
-                    ),
-                  );
-                },
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              SwitchListTile(
-                secondary: Icon(
-                  Icons.fingerprint_rounded,
-                  color: isPremium
-                      ? AppColors.textSecondary
-                      : AppColors.textDisabled,
-                ),
-                title: const Text('Biometric Lock'),
-                subtitle: Text(
-                  'Secure your journal with Face ID / Fingerprint',
-                  style: TextStyle(
-                    color: isPremium
-                        ? AppColors.textHint
-                        : AppColors.textDisabled,
-                  ),
-                ),
-                value: false, // Placeholder value
-                onChanged: isPremium
-                    ? (bool value) {
-                        // TODO: Implement biometric lock logic
-                      }
-                    : null, // Disable the switch for free users
-                activeColor: AppColors.primary,
-              ),
-              if (!isPremium)
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: 72.0,
-                    right: 16,
-                    bottom: 8,
-                  ),
-                  child: Text(
-                    'This is a Premium feature.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
-                  ),
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, "About"),
-          _buildSettingsGroup(
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.privacy_tip_outlined,
-                  color: AppColors.textSecondary,
-                ),
-                title: const Text('Privacy Policy'),
-                onTap: () {
-                  showDialog(
+                context: context,
+                isDark: isDark,
+                children: [
+                  _buildSettingsTile(
                     context: context,
-                    builder: (ctx) => const Dialog(
-                      child: SizedBox(
-                        height: 600, // Or some other constraint
-                        child: PrivacyPolicyContent(
-                          showAcceptanceControls: false,
+                    icon: Icons.person_outline_rounded,
+                    title: 'Manage Account',
+                    subtitle: 'Profile, usage, and data',
+                    onTap: () {
+                      _hapticService.light();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ProfileScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDivider(),
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.workspace_premium_rounded,
+                    iconColor: isPremium
+                        ? AppColors.getPrimary(isDark)
+                        : AppColors.getSecondary(isDark),
+                    title: isPremium
+                        ? 'Premium Features'
+                        : 'Upgrade to Premium',
+                    subtitle: isPremium
+                        ? 'View all premium benefits'
+                        : 'Unlock all features',
+                    onTap: () {
+                      _hapticService.light();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PremiumFeaturesScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (isPremium) ...[
+                    _buildDivider(),
+                    _buildSettingsTile(
+                      context: context,
+                      icon: Icons.manage_accounts_rounded,
+                      title: 'Manage Subscription',
+                      subtitle: 'View and manage your subscription',
+                      onTap: () {
+                        _hapticService.light();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const SubscriptionManagementScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              )
+              .animate()
+              .fadeIn(duration: 300.ms, delay: 50.ms)
+              .slideY(begin: 0.2, end: 0),
+
+          const SizedBox(height: AppSpacing.sectionSpacing),
+
+          // Cloud Sync Section (Premium only)
+          if (isPremium) ...[
+            _buildSectionHeader(context, 'Cloud Sync'),
+            _buildSettingsGroup(
+                  context: context,
+                  isDark: isDark,
+                  children: [
+                    // Sync Now Button
+                    _buildSettingsTile(
+                      context: context,
+                      icon: _isSyncing
+                          ? Icons.sync_rounded
+                          : Icons.cloud_sync_rounded,
+                      title: _isSyncing ? 'Syncing...' : 'Sync Now',
+                      subtitle: _pendingVibesCount > 0
+                          ? '$_pendingVibesCount vibes pending sync'
+                          : 'All vibes synced',
+                      trailing: _isSyncing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : null,
+                      onTap: _isSyncing ? null : _syncVibes,
+                      isDisabled: _isSyncing,
+                    ),
+
+                    _buildDivider(),
+
+                    // Last Sync Time
+                    ListTile(
+                      leading: Icon(
+                        Icons.schedule_rounded,
+                        color: AppColors.getTextSecondary(isDark),
+                      ),
+                      title: const Text('Last Sync'),
+                      trailing: Text(
+                        _formatLastSyncTime(),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.getTextSecondary(isDark),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              ListTile(
-                leading: const Icon(
-                  Icons.gavel_rounded,
-                  color: AppColors.textSecondary,
-                ),
-                title: const Text('Terms of Service'),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => const Dialog(
-                      child: SizedBox(
-                        height: 600, // Or some other constraint
-                        child: TermsAndConditionsContent(
-                          showAcceptanceControls: false,
+
+                    _buildDivider(),
+
+                    // Offline Audio Status
+                    ListTile(
+                      leading: Icon(
+                        Icons.offline_pin_rounded,
+                        color: AppColors.getTextSecondary(isDark),
+                      ),
+                      title: const Text('Available Offline'),
+                      subtitle: _audioCacheSize > 0
+                          ? Text('${_formatFileSize(_audioCacheSize)} used')
+                          : null,
+                      trailing: Text(
+                        '$_offlineVibesCount of $_totalVibesCount',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.getTextSecondary(isDark),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              ListTile(
-                leading: const Icon(
-                  Icons.info_outline_rounded,
-                  color: AppColors.textSecondary,
+
+                    // Clear Cache Button (only show if there's cached data)
+                    if (_offlineVibesCount > 0) ...[
+                      _buildDivider(),
+                      _buildSettingsTile(
+                        context: context,
+                        icon: _isClearingCache
+                            ? Icons.hourglass_empty_rounded
+                            : Icons.delete_sweep_rounded,
+                        iconColor: Colors.red,
+                        title: _isClearingCache
+                            ? 'Clearing Cache...'
+                            : 'Clear Offline Audio',
+                        subtitle: 'Free up ${_formatFileSize(_audioCacheSize)}',
+                        trailing: _isClearingCache
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : null,
+                        onTap: _isClearingCache ? null : _clearAudioCache,
+                        isDisabled: _isClearingCache,
+                      ),
+                    ],
+                  ],
+                )
+                .animate()
+                .fadeIn(duration: 300.ms, delay: 75.ms)
+                .slideY(begin: 0.2, end: 0),
+            const SizedBox(height: AppSpacing.sectionSpacing),
+          ],
+
+          // Appearance Section
+          _buildSectionHeader(context, 'Appearance'),
+          _buildSettingsGroup(
+                context: context,
+                isDark: isDark,
+                children: [_buildThemeSelector(context)],
+              )
+              .animate()
+              .fadeIn(duration: 300.ms, delay: 100.ms)
+              .slideY(begin: 0.2, end: 0),
+
+          const SizedBox(height: AppSpacing.sectionSpacing),
+
+          // Preferences Section
+          _buildSectionHeader(context, 'Preferences'),
+          _buildSettingsGroup(
+                context: context,
+                isDark: isDark,
+                children: [
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.notifications_outlined,
+                    title: 'Notifications',
+                    subtitle: 'Reminders and alerts',
+                    onTap: () {
+                      _hapticService.light();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationSettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (!_isLoadingBiometrics) ...[
+                    _buildDivider(),
+                    _buildSwitchTile(
+                      context: context,
+                      icon: Icons.fingerprint_rounded,
+                      title: 'Biometric Lock',
+                      subtitle: 'Secure with Face ID / Fingerprint',
+                      value: _biometricLockEnabled,
+                      onChanged: isPremium ? _onBiometricLockChanged : null,
+                      isLocked: !isPremium,
+                      lockMessage: 'Premium feature',
+                    ),
+                  ],
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    context: context,
+                    icon: Icons.vibration_rounded,
+                    title: 'Haptic Feedback',
+                    subtitle: 'Tactile responses',
+                    value: _hapticsEnabled,
+                    onChanged: _onHapticsChanged,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    context: context,
+                    icon: Icons.volume_up_rounded,
+                    title: 'Sound Effects',
+                    subtitle: 'UI sounds (opt-in)',
+                    value: _soundsEnabled,
+                    onChanged: _onSoundsChanged,
+                  ),
+                ],
+              )
+              .animate()
+              .fadeIn(duration: 300.ms, delay: 150.ms)
+              .slideY(begin: 0.2, end: 0),
+
+          const SizedBox(height: AppSpacing.sectionSpacing),
+
+          // About Section
+          _buildSectionHeader(context, 'About'),
+          _buildSettingsGroup(
+                context: context,
+                isDark: isDark,
+                children: [
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy Policy',
+                    onTap: () {
+                      _hapticService.light();
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => Dialog(
+                          child: SizedBox(
+                            height: 600,
+                            child: const PrivacyPolicyContent(
+                              showAcceptanceControls: false,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDivider(),
+                  _buildSettingsTile(
+                    context: context,
+                    icon: Icons.gavel_rounded,
+                    title: 'Terms of Service',
+                    onTap: () {
+                      _hapticService.light();
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => Dialog(
+                          child: SizedBox(
+                            height: 600,
+                            child: const TermsAndConditionsContent(
+                              showAcceptanceControls: false,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDivider(),
+                  ListTile(
+                    leading: Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.getTextSecondary(isDark),
+                    ),
+                    title: const Text('App Version'),
+                    trailing: Text(
+                      '1.0.0',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.getTextSecondary(
+                          isDark,
+                        ).withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+              .animate()
+              .fadeIn(duration: 300.ms, delay: 200.ms)
+              .slideY(begin: 0.2, end: 0),
+
+          const SizedBox(height: AppSpacing.xxl),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AppSpacing.xs,
+        bottom: AppSpacing.sm,
+      ),
+      child: Text(
+        title.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: AppColors.getTextSecondary(isDark).withValues(alpha: 0.6),
+          letterSpacing: 1.2,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsGroup({
+    required BuildContext context,
+    required bool isDark,
+    required List<Widget> children,
+  }) {
+    return AnimatedCard(
+      margin: EdgeInsets.zero,
+      padding: EdgeInsets.zero,
+      color: AppColors.getSurface(isDark),
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    VoidCallback? onTap,
+    Color? iconColor,
+    Widget? trailing,
+    bool isDisabled = false,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isDisabled
+            ? AppColors.getTextSecondary(isDark).withValues(alpha: 0.4)
+            : (iconColor ?? AppColors.getTextSecondary(isDark)),
+      ),
+      title: Text(
+        title,
+        style: isDisabled
+            ? TextStyle(
+                color: AppColors.getTextSecondary(
+                  isDark,
+                ).withValues(alpha: 0.4),
+              )
+            : null,
+      ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: isDisabled
+                  ? TextStyle(
+                      color: AppColors.getTextSecondary(
+                        isDark,
+                      ).withValues(alpha: 0.4),
+                    )
+                  : null,
+            )
+          : null,
+      trailing: trailing ?? const Icon(Icons.chevron_right_rounded),
+      onTap: isDisabled ? null : onTap,
+      enabled: !isDisabled,
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+    bool isLocked = false,
+    String? lockMessage,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: Icon(
+            icon,
+            color: isLocked
+                ? AppColors.getTextSecondary(isDark).withValues(alpha: 0.4)
+                : AppColors.getTextSecondary(isDark),
+          ),
+          title: Text(
+            title,
+            style: TextStyle(
+              color: isLocked
+                  ? AppColors.getTextSecondary(isDark).withValues(alpha: 0.4)
+                  : null,
+            ),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: TextStyle(
+              color: isLocked
+                  ? AppColors.getTextSecondary(isDark).withValues(alpha: 0.4)
+                  : null,
+            ),
+          ),
+          value: value,
+          onChanged: onChanged,
+        ),
+        if (isLocked && lockMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 72.0,
+              right: AppSpacing.lg,
+              bottom: AppSpacing.sm,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                lockMessage,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.getPrimary(isDark),
                 ),
-                title: const Text('App Version'),
-                trailing: Text(
-                  "1.0.0",
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: AppColors.textHint),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildThemeSelector(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                color: AppColors.getTextSecondary(isDark),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Theme', style: theme.textTheme.titleMedium),
+                    Text(
+                      'Choose your preferred theme',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: _buildThemeOption(
+                  context: context,
+                  icon: Icons.light_mode_rounded,
+                  label: 'Light',
+                  isSelected: themeProvider.isLightMode,
+                  onTap: () {
+                    _hapticService.themeToggle();
+                    themeProvider.setLightMode();
+                  },
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _buildThemeOption(
+                  context: context,
+                  icon: Icons.dark_mode_rounded,
+                  label: 'Dark',
+                  isSelected: themeProvider.isDarkMode,
+                  onTap: () {
+                    _hapticService.themeToggle();
+                    themeProvider.setDarkMode();
+                  },
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _buildThemeOption(
+                  context: context,
+                  icon: Icons.settings_suggest_rounded,
+                  label: 'System',
+                  isSelected: themeProvider.isSystemMode,
+                  onTap: () {
+                    _hapticService.themeToggle();
+                    themeProvider.setSystemMode();
+                  },
                 ),
               ),
             ],
@@ -302,25 +794,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
-      child: Text(
-        title.toUpperCase(),
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: AppColors.textHint),
+  Widget _buildThemeOption({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.md,
+          horizontal: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.getPrimary(isDark).withValues(alpha: 0.15)
+              : Colors.transparent,
+          border: Border.all(
+            color: isSelected
+                ? AppColors.getPrimary(isDark)
+                : AppColors.getTextSecondary(isDark).withValues(alpha: 0.2),
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected
+                  ? AppColors.getPrimary(isDark)
+                  : AppColors.getTextSecondary(isDark),
+              size: 24,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: isSelected
+                    ? AppColors.getPrimary(isDark)
+                    : AppColors.getTextSecondary(isDark),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSettingsGroup({required List<Widget> children}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(children: children),
+  Widget _buildDivider() {
+    return const Divider(
+      height: 1,
+      indent: AppSpacing.iconMd + AppSpacing.lg * 2,
+      endIndent: AppSpacing.lg,
     );
   }
 }

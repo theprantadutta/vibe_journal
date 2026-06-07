@@ -19,10 +19,11 @@ class BiometricAuthService {
 
       return await _auth.authenticate(
         localizedReason: reason,
-        options: const AuthenticationOptions(
-          stickyAuth: true, // Keep prompt open on app switch
-          biometricOnly: true, // Only allow biometrics, no PIN/Pattern
-        ),
+        persistAcrossBackgrounding: true,
+        // options: const AuthenticationOptions(
+        //   stickyAuth: true, // Keep prompt open on app switch
+        //   biometricOnly: true, // Only allow biometrics, no PIN/Pattern
+        // ),
       );
     } on PlatformException catch (e) {
       if (kDebugMode) {
