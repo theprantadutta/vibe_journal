@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
@@ -10,7 +9,6 @@ import 'service_locator.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late final AuthRepository _authRepository;
   late final VibeRepository _vibeRepository;
 
@@ -54,11 +52,9 @@ class AuthService {
         credential,
       );
 
-      // Create or update user profile in Firestore (backward compatibility)
       if (result.user != null) {
-        await _createOrUpdateUserProfile(result.user!);
-
-        // NEW: Verify Firebase token with backend and get JWT
+        // Verify Firebase token with backend and get JWT
+        // (the backend auto-creates the user on first login)
         final authResponse = await _authRepository.verifyFirebaseToken(
           result.user!,
         );
@@ -101,34 +97,6 @@ class AuthService {
       }
       // Error occurred during sign in - returning null to indicate failure
       return null;
-    }
-  }
-
-  /// Create or update user profile in Firestore
-  Future<void> _createOrUpdateUserProfile(User user) async {
-    final userDoc = _firestore.collection('users').doc(user.uid);
-    final docSnapshot = await userDoc.get();
-
-    if (!docSnapshot.exists) {
-      // Create new user profile for first-time Google Sign-In users
-      await userDoc.set({
-        'fullName': user.displayName ?? 'User',
-        'email': user.email,
-        'createdAt': Timestamp.now(),
-        'uid': user.uid,
-        'plan': 'free',
-        'cloudVibeCount': 0,
-        'photoURL': user.photoURL,
-        'authProvider': 'google',
-        'notificationPreferences': {
-          'dailyReminderEnabled': true,
-          'streaksEnabled': true,
-          'mindfulMomentsEnabled': true,
-        },
-      });
-    } else {
-      // Update last sign-in timestamp for existing users
-      await userDoc.update({'lastSignIn': Timestamp.now()});
     }
   }
 

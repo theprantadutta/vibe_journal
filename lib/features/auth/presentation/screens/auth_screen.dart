@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:vibe_journal/features/layout/main_app_layout.dart';
@@ -20,8 +19,8 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/animated_button.dart';
 import '../../../../core/widgets/animated_card.dart';
-import '../../domain/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/user_repository.dart';
 import '../../../../core/services/service_locator.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -44,7 +43,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _confirmPasswordController = TextEditingController();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // State for legal agreement checkboxes
   bool _agreedToTerms = false;
@@ -99,24 +97,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       UserCredential userCredential;
-      UserModel? userModel;
 
       if (_isLoginMode) {
         userCredential = await _auth.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        if (userCredential.user != null) {
-          final userDoc = await _firestore
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .get();
-          if (userDoc.exists) {
-            userModel = UserModel.fromFirestore(userDoc);
-          } else {
-            _errorMessage = 'User data not found. Please contact support.';
-          }
-        }
       } else {
         // Sign Up mode
         if (_passwordController.text.trim() !=
@@ -131,40 +117,12 @@ class _AuthScreenState extends State<AuthScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-
-        if (userCredential.user != null) {
-          final now = Timestamp.now();
-          final Map<String, dynamic> newUserFirestoreData = {
-            'fullName': _fullNameController.text.trim(),
-            'email': _emailController.text.trim(),
-            'createdAt': now,
-            'uid': userCredential.user!.uid,
-            'plan': 'free',
-            'cloudVibeCount': 0,
-            'notificationPreferences': {
-              'dailyReminderEnabled': true,
-              'streaksEnabled': true,
-              'mindfulMomentsEnabled': true,
-            },
-          };
-          await _firestore
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .set(newUserFirestoreData);
-          userModel = UserModel.fromFirestore(
-            await _firestore
-                .collection('users')
-                .doc(userCredential.user!.uid)
-                .get(),
-          );
-        }
       }
 
-      if (userModel != null && userCredential.user != null) {
-        // Store Firebase token for API requests
-        final authRepository = locator<AuthRepository>();
-
+      if (userCredential.user != null) {
         // Verify Firebase token with backend and store it
+        // (the backend auto-creates the user on first login)
+        final authRepository = locator<AuthRepository>();
         final authResponse = await authRepository.verifyFirebaseToken(
           userCredential.user!,
         );
@@ -173,24 +131,37 @@ class _AuthScreenState extends State<AuthScreen> {
           if (kDebugMode) {
             print('⚠️ Backend auth verification failed: ${authResponse.error}');
           }
-          // Continue with Firebase-only auth as fallback
         } else {
           if (kDebugMode) {
             print('✅ Firebase token stored for API requests');
           }
         }
 
-        final userService = locator<UserService>();
+        // For new accounts, store the full name on the backend profile
+        if (!_isLoginMode) {
+          final updateResponse = await locator<UserRepository>().updateProfile(
+            fullName: _fullNameController.text.trim(),
+          );
+          if (!updateResponse.isSuccess) {
+            if (kDebugMode) {
+              print('⚠️ Failed to save full name: ${updateResponse.error}');
+            }
+          }
+        }
 
-        // Try to fetch user from backend API (preferred)
+        // Fetch user profile from the backend (falls back to local cache)
+        final userService = locator<UserService>();
         final fetchedFromBackend = await userService.fetchAndUpdateUser();
 
         if (!fetchedFromBackend) {
-          // Fallback to Firestore data if backend fetch failed
-          if (kDebugMode) {
-            print('⚠️ Using Firestore data as fallback');
-          }
-          await userService.updateUser(userModel);
+          _hapticService.error();
+          _soundService.error();
+          setState(() {
+            _errorMessage =
+                'Could not load your profile. Please check your connection and try again.';
+            _isLoading = false;
+          });
+          return;
         }
 
         _hapticService.success();
@@ -200,13 +171,6 @@ class _AuthScreenState extends State<AuthScreen> {
           context,
           MaterialPageRoute(builder: (_) => const MainAppLayout()),
         );
-      } else if (_isLoginMode && _errorMessage != null) {
-        _hapticService.error();
-        _soundService.error();
-        setState(() {
-          _isLoading = false;
-        });
-        return;
       }
     } on FirebaseAuthException catch (err) {
       _hapticService.error();
@@ -261,24 +225,18 @@ class _AuthScreenState extends State<AuthScreen> {
       if (userCredential?.user != null) {
         final userService = locator<UserService>();
 
-        // Try to fetch user from backend API (preferred)
+        // Fetch user profile from the backend (falls back to local cache)
         final fetchedFromBackend = await userService.fetchAndUpdateUser();
 
         if (!fetchedFromBackend) {
-          // Fallback to Firestore data if backend fetch failed
-          if (kDebugMode) {
-            print('⚠️ Using Firestore data as fallback for Google Sign-In');
-          }
-
-          final userDoc = await _firestore
-              .collection('users')
-              .doc(userCredential!.user!.uid)
-              .get();
-
-          if (userDoc.exists) {
-            final userModel = UserModel.fromFirestore(userDoc);
-            await userService.updateUser(userModel);
-          }
+          _hapticService.error();
+          _soundService.error();
+          setState(() {
+            _errorMessage =
+                'Could not load your profile. Please check your connection and try again.';
+            _isGoogleLoading = false;
+          });
+          return;
         }
 
         _hapticService.success();

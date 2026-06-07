@@ -164,7 +164,7 @@ class RestoreService {
                     processingStatus: drift.Value(
                       vibe.processingStatus ?? 'completed',
                     ),
-                    createdAt: drift.Value(vibe.createdAt.toDate()),
+                    createdAt: drift.Value(vibe.createdAt),
                     processedAt: drift.Value(vibe.processedAt),
                     isPendingDelete: const drift.Value(false),
                     localAudioPath: drift.Value(localAudioPath),

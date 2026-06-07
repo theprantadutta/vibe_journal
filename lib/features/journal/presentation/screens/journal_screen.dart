@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -89,7 +88,6 @@ class _JournalScreenState extends State<JournalScreen>
   late AnimationController _glowAnimationController;
   late Animation<double> _glowAnimation;
 
-  final _firestore = FirebaseFirestore.instance;
   bool _showUpgradeBanner = false;
   static const String _bannerDismissedKey = 'upgrade_banner_dismissed';
 
@@ -516,14 +514,11 @@ class _JournalScreenState extends State<JournalScreen>
     } else {
       final currentUserAuth = FirebaseAuth.instance.currentUser;
       if (currentUserAuth != null) {
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(currentUserAuth.uid)
-            .get();
         final userService = locator<UserService>();
-        if (userDoc.exists) {
-          final model = UserModel.fromFirestore(userDoc);
-          await userService.updateUser(model);
+        // Fetch user profile from the backend (falls back to local cache)
+        final fetched = await userService.fetchAndUpdateUser();
+        if (fetched && userService.isUserLoggedIn) {
+          final model = userService.currentUser;
           if (!mounted) return;
           setState(() => _currentUserModel = model);
           if (!_userService.isPremium) _checkShowUpgradeBanner();
@@ -1252,7 +1247,7 @@ class _JournalScreenState extends State<JournalScreen>
                 Text(
                   DateFormat(
                     'MMM d, yyyy \'at\' h:mm a',
-                  ).format(vibe.createdAt.toDate()),
+                  ).format(vibe.createdAt),
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: AppColors.getTextPrimary(isDark),
                   ),

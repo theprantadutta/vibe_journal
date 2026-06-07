@@ -120,9 +120,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _vibesByDay.clear();
       for (final vibe in allVibes) {
         final day = DateTime.utc(
-          vibe.createdAt.toDate().year,
-          vibe.createdAt.toDate().month,
-          vibe.createdAt.toDate().day,
+          vibe.createdAt.year,
+          vibe.createdAt.month,
+          vibe.createdAt.day,
         );
 
         if (_vibesByDay[day] == null) {
@@ -471,7 +471,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     title: Text(
                                       DateFormat(
                                         'hh:mm a',
-                                      ).format(vibe.createdAt.toDate()),
+                                      ).format(vibe.createdAt),
                                       style: textTheme.titleSmall?.copyWith(
                                         fontWeight: FontWeight.bold,
                                       ),

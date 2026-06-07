@@ -381,7 +381,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final vibeDate = _currentVibe.createdAt.toDate();
+    final vibeDate = _currentVibe.createdAt;
 
     return Scaffold(
       appBar: AppBar(
@@ -451,7 +451,7 @@ class _VibeDetailScreenState extends State<VibeDetailScreen> {
                 ),
               ),
               Text(
-                'Recorded at ${DateFormat('hh:mm a').format(_currentVibe.createdAt.toDate())}',
+                'Recorded at ${DateFormat('hh:mm a').format(_currentVibe.createdAt)}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.getTextHint(isDark),
                 ),

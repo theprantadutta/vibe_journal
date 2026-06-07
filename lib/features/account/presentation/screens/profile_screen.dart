@@ -1,7 +1,5 @@
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/core/services/sync_service.dart';
 import 'package:vibe_journal/core/services/user_service.dart';
+import 'package:vibe_journal/features/auth/data/repositories/user_repository.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
 import 'package:vibe_journal/config/theme/app_spacing.dart';
@@ -290,45 +289,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // Re-authentication successful, proceed with deletion
-      final userId = user.uid;
-      final firestore = FirebaseFirestore.instance;
-      final storage = FirebaseStorage.instance;
 
-      // 3. Get all user data to find files for deletion
-      final vibesQuery = await firestore
-          .collection('vibes')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      // 4. Delete all files from Cloud Storage
-      if (vibesQuery.docs.isNotEmpty) {
-        final deleteFutures = vibesQuery.docs.map((doc) {
-          final path = doc.data()['audioPath'] as String?;
-          if (path != null && path.isNotEmpty) {
-            return storage.ref(path).delete();
-          }
-          return Future.value(); // Return a completed future if no path
-        }).toList();
-        await Future.wait(deleteFutures);
-        if (kDebugMode) {
-          print('Deleted ${deleteFutures.length} files from Storage.');
-        }
+      // 3. Delete all backend data in one call
+      //    (user row, vibes, FCM tokens, purchase history and audio files)
+      final deleteResponse = await locator<UserRepository>().deleteAccount();
+      if (!deleteResponse.isSuccess) {
+        throw Exception(
+          deleteResponse.error ?? 'Failed to delete account data',
+        );
       }
-
-      // 5. Delete all Firestore documents in a batch for efficiency
-      final batch = firestore.batch();
-      for (final doc in vibesQuery.docs) {
-        batch.delete(doc.reference);
-      }
-      batch.delete(
-        firestore.collection('users').doc(userId),
-      ); // Delete the user's document
-      await batch.commit();
       if (kDebugMode) {
-        print('Deleted user document and all vibe documents from Firestore.');
+        print('Deleted user account and all data from backend.');
       }
 
-      // 6. Delete the auth user itself (this must be last)
+      // 4. Delete the auth user itself (this must be last)
       await user.delete();
       if (kDebugMode) {
         print('Deleted user from Firebase Authentication.');

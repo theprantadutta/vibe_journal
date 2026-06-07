@@ -151,22 +151,22 @@ class _InsightsScreenState extends State<InsightsScreen> {
         break;
       case ChartTimeRange.all:
         startDate = _allVibes.isNotEmpty
-            ? _allVibes.first.createdAt.toDate()
+            ? _allVibes.first.createdAt
             : now;
         break;
     }
 
     final filteredVibes = _allVibes.where((v) {
-      final vibeDate = v.createdAt.toDate();
+      final vibeDate = v.createdAt;
       return !vibeDate.isBefore(startDate) && (v.sentimentScore != null);
     }).toList();
 
     final Map<DateTime, List<double>> dailyScores = {};
     for (var vibe in filteredVibes) {
       final day = DateTime.utc(
-        vibe.createdAt.toDate().year,
-        vibe.createdAt.toDate().month,
-        vibe.createdAt.toDate().day,
+        vibe.createdAt.year,
+        vibe.createdAt.month,
+        vibe.createdAt.day,
       );
       if (dailyScores[day] == null) dailyScores[day] = [];
       dailyScores[day]!.add(vibe.sentimentScore!);
@@ -224,7 +224,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
     final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
     final recentVibes = _allVibes
-        .where((v) => !v.createdAt.toDate().isBefore(thirtyDaysAgo))
+        .where((v) => !v.createdAt.isBefore(thirtyDaysAgo))
         .toList();
 
     if (recentVibes.isEmpty) {
@@ -282,9 +282,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
         _allVibes
             .map(
               (v) => DateTime.utc(
-                v.createdAt.toDate().year,
-                v.createdAt.toDate().month,
-                v.createdAt.toDate().day,
+                v.createdAt.year,
+                v.createdAt.month,
+                v.createdAt.day,
               ),
             )
             .toSet()

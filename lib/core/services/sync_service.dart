@@ -224,7 +224,7 @@ class SyncService {
               processingStatus: drift.Value(
                 cloudVibe.processingStatus ?? 'completed',
               ),
-              createdAt: drift.Value(cloudVibe.createdAt.toDate()),
+              createdAt: drift.Value(cloudVibe.createdAt),
               processedAt: drift.Value(cloudVibe.processedAt),
               isPendingDelete: const drift.Value(false),
               // Keep original local path for playback

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../../../core/api/api_client.dart';
@@ -87,7 +89,7 @@ class UserRepository {
               notificationPreferences: drift.Value(
                 _serializeNotificationPreferences(userModel),
               ),
-              createdAt: drift.Value(userModel.createdAt.toDate()),
+              createdAt: drift.Value(userModel.createdAt),
               lastSyncedAt: drift.Value(DateTime.now()),
             ),
           );
@@ -120,6 +122,122 @@ class UserRepository {
     }
   }
 
+  /// Update current user's profile on the backend (e.g. full name)
+  Future<ApiResponse<UserModel>> updateProfile({String? fullName}) async {
+    try {
+      final response = await _apiClient.patch(
+        ApiEndpoints.usersMe,
+        data: {'full_name': ?fullName},
+      );
+
+      if (_apiClient.isSuccessful(response)) {
+        final userModel = UserModel.fromBackendJson(
+          response.data as Map<String, dynamic>,
+        );
+        await _cacheUser(userModel);
+        return ApiResponse.success(userModel);
+      }
+
+      return ApiResponse.error(
+        _apiClient.getErrorMessage(response) ?? 'Failed to update profile',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      return ApiResponse.error(
+        e.message ?? 'Network error',
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
+    }
+  }
+
+  /// Update notification preferences on the backend
+  Future<ApiResponse<UserModel>> updateNotificationPreferences(
+    Map<String, bool> preferences,
+  ) async {
+    try {
+      final response = await _apiClient.patch(
+        ApiEndpoints.usersMeNotifications,
+        data: preferences,
+      );
+
+      if (_apiClient.isSuccessful(response)) {
+        final userModel = UserModel.fromBackendJson(
+          response.data as Map<String, dynamic>,
+        );
+        await _cacheUser(userModel);
+        return ApiResponse.success(userModel);
+      }
+
+      return ApiResponse.error(
+        _apiClient.getErrorMessage(response) ??
+            'Failed to update notification preferences',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      return ApiResponse.error(
+        e.message ?? 'Network error',
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
+    }
+  }
+
+  /// Register an FCM token with the backend for push notifications
+  Future<ApiResponse<void>> registerFcmToken(
+    String token, {
+    String? platform,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        ApiEndpoints.usersMeFcmTokens,
+        data: {'token': token, 'platform': ?platform},
+      );
+
+      if (_apiClient.isSuccessful(response)) {
+        return ApiResponse.success(null);
+      }
+
+      return ApiResponse.error(
+        _apiClient.getErrorMessage(response) ?? 'Failed to register FCM token',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      return ApiResponse.error(
+        e.message ?? 'Network error',
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
+    }
+  }
+
+  /// Permanently delete the current user's account and all backend data
+  Future<ApiResponse<void>> deleteAccount() async {
+    try {
+      final response = await _apiClient.delete(ApiEndpoints.usersMe);
+
+      if (_apiClient.isSuccessful(response)) {
+        await clearCache();
+        return ApiResponse.success(null);
+      }
+
+      return ApiResponse.error(
+        _apiClient.getErrorMessage(response) ?? 'Failed to delete account',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      return ApiResponse.error(
+        e.message ?? 'Network error',
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ApiResponse.error('Unexpected error: $e', statusCode: 500);
+    }
+  }
+
   /// Clear cached user data
   Future<void> clearCache() async {
     await _database.delete(_database.users).go();
@@ -127,8 +245,6 @@ class UserRepository {
 
   /// Serialize notification preferences to JSON string
   String _serializeNotificationPreferences(UserModel userModel) {
-    // For now, return empty JSON object
-    // TODO: Implement proper serialization if backend returns notification prefs
-    return '{}';
+    return jsonEncode(userModel.notificationPreferences);
   }
 }

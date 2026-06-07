@@ -1,9 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import '../../features/auth/data/repositories/user_repository.dart';
+import 'service_locator.dart';
 
 /// Top-level function to handle background messages
 /// This must be outside any class and marked with @pragma
@@ -19,7 +22,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 class NotificationService {
   // Firebase services instances
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -158,38 +160,28 @@ class NotificationService {
     _fcm.onTokenRefresh.listen(_saveTokenToDatabase);
   }
 
-  /// Saves the FCM token to Firestore under the current user's document
+  /// Registers the FCM token with the backend API
   Future<void> _saveTokenToDatabase(String token) async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) {
-      if (kDebugMode) print("⚠️ No user logged in, can't save FCM token");
-      return;
-    }
-
-    final userDocRef = _firestore.collection('users').doc(userId);
-
     try {
-      // Try to add the token to the existing array
-      await userDocRef.update({
-        'fcmTokens': FieldValue.arrayUnion([token]),
-      });
-      if (kDebugMode) print("💾 Updated FCM token in Firestore");
-    } on FirebaseException catch (e) {
-      if (e.code == 'not-found') {
-        // Document doesn't exist, create it
-        await userDocRef.set({
-          'fcmTokens': [token],
-        }, SetOptions(merge: true));
-        if (kDebugMode) print("💾 Created new user doc with FCM token");
+      String? platform;
+      if (!kIsWeb) {
+        if (Platform.isAndroid) platform = 'android';
+        if (Platform.isIOS) platform = 'ios';
+      }
+
+      final response = await locator<UserRepository>().registerFcmToken(
+        token,
+        platform: platform,
+      );
+
+      if (response.isSuccess) {
+        if (kDebugMode) print("💾 Registered FCM token with backend");
       } else {
-        // Other Firebase errors
-        if (kDebugMode) print("🔥 Error saving FCM token: ${e.message}");
-        rethrow; // Consider adding retry logic here
+        // Not fatal - the token will be re-registered on next refresh/login
+        if (kDebugMode) print("🔥 Error saving FCM token: ${response.error}");
       }
     } catch (e) {
-      // Non-Firebase exceptions
       if (kDebugMode) print("🔥 Unexpected error saving FCM token: $e");
-      rethrow;
     }
   }
 }

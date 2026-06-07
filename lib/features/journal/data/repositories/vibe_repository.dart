@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
@@ -463,7 +462,7 @@ class VibeRepository {
               sentimentMagnitude: drift.Value(vibeModel.sentimentMagnitude),
               processingStatus: drift.Value(vibeModel.processingStatus ?? 'completed'),
               processedAt: drift.Value(vibeModel.processedAt),
-              createdAt: drift.Value(vibeModel.createdAt.toDate()),
+              createdAt: drift.Value(vibeModel.createdAt),
               isPendingDelete: const drift.Value(false),
               localAudioPath: drift.Value(localAudioPathToUse), // Preserve local path
               isAudioDownloaded: drift.Value(isDownloaded),
@@ -536,7 +535,7 @@ class VibeRepository {
         sentimentScore: null,
         sentimentMagnitude: null,
         processingStatus: 'local',
-        createdAt: Timestamp.now(),
+        createdAt: DateTime.now(),
         processedAt: null,
         audioUrl: localAudioPath,
         localAudioPath: localAudioPath, // Store absolute local path
@@ -558,7 +557,7 @@ class VibeRepository {
               sentimentScore: drift.Value(vibe.sentimentScore),
               sentimentMagnitude: drift.Value(vibe.sentimentMagnitude),
               processingStatus: drift.Value(vibe.processingStatus ?? 'local'),
-              createdAt: drift.Value(vibe.createdAt.toDate()),
+              createdAt: drift.Value(vibe.createdAt),
               processedAt: drift.Value(vibe.processedAt),
               isPendingDelete: const drift.Value(false),
               localAudioPath: drift.Value(vibe.localAudioPath), // Absolute local path

@@ -1,5 +1,4 @@
 // lib/features/journal/domain/models/vibe_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/database/app_database.dart';
 
 class VibeModel {
@@ -8,7 +7,7 @@ class VibeModel {
   final String audioPath;
   final String fileName;
   final int duration; // in milliseconds
-  final Timestamp createdAt;
+  final DateTime createdAt;
   final String transcription;
   final String mood; // 'positive', 'negative', 'neutral', 'unknown'
   final double? sentimentScore;
@@ -40,28 +39,6 @@ class VibeModel {
     this.isAudioDownloaded = false,
   });
 
-  /// Create VibeModel from Firestore document (backward compatibility)
-  factory VibeModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
-    return VibeModel(
-      id: doc.id,
-      userId: data['userId'] as String,
-      audioPath: data['audioPath'] as String,
-      fileName: data['fileName'] as String,
-      duration: data['duration'] as int,
-      createdAt: data['createdAt'] as Timestamp,
-      transcription: data['transcription'] as String? ?? '',
-      mood: data['mood'] as String? ?? 'unknown',
-      sentimentScore: (data['sentimentScore'] as num?)?.toDouble(),
-      sentimentMagnitude: (data['sentimentMagnitude'] as num?)?.toDouble(),
-      processingStatus: data['processingStatus'] as String?,
-      processedAt: null,
-      audioUrl:
-          data['audioPath']
-              as String?, // In Firestore, audioPath is the download URL
-    );
-  }
-
   /// Create VibeModel from backend API JSON response
   factory VibeModel.fromBackendJson(Map<String, dynamic> json) {
     final createdAt = json['created_at'] as String?;
@@ -80,9 +57,7 @@ class VibeModel {
       processingStatus: json['processing_status'] as String?,
       processedAt: processedAt != null ? DateTime.parse(processedAt) : null,
       audioUrl: json['audio_url'] as String?,
-      createdAt: createdAt != null
-          ? Timestamp.fromDate(DateTime.parse(createdAt))
-          : Timestamp.now(),
+      createdAt: createdAt != null ? DateTime.parse(createdAt) : DateTime.now(),
       localAudioPath: null,
       isAudioDownloaded: false,
     );
@@ -103,7 +78,7 @@ class VibeModel {
       processingStatus: vibe.processingStatus,
       processedAt: vibe.processedAt,
       audioUrl: vibe.localAudioPath ?? vibe.audioPath, // Use local if available
-      createdAt: Timestamp.fromDate(vibe.createdAt),
+      createdAt: vibe.createdAt,
       localAudioPath: vibe.localAudioPath,
       isAudioDownloaded: vibe.isAudioDownloaded,
     );

@@ -1,10 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vibe_journal/config/theme/app_colors.dart';
+import 'package:vibe_journal/core/services/service_locator.dart';
+import 'package:vibe_journal/core/services/user_service.dart';
+import 'package:vibe_journal/features/auth/data/repositories/user_repository.dart';
 
-// Keys for saving preferences to Firestore
+// Keys for notification preferences (must match the backend JSON keys)
 const String kDailyReminderEnabled = 'dailyReminderEnabled';
 const String kStreaksEnabled = 'streaksEnabled';
 const String kMindfulMomentsEnabled = 'mindfulMomentsEnabled';
@@ -36,39 +37,30 @@ class _NotificationSettingsScreenState
   @override
   void initState() {
     super.initState();
-    _loadSettingsFromFirestore();
+    _loadSettings();
   }
 
-  // In your _NotificationSettingsScreenState class:
-
-  // This function is now simpler and also syncs Firestore settings to a local cache.
-  Future<void> _loadSettingsFromFirestore() async {
+  // Loads preferences from the backend and syncs them to the local cache.
+  Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
 
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      final userService = locator<UserService>();
       final preferences = await SharedPreferences.getInstance();
 
-      if (userDoc.exists && mounted) {
-        final data = userDoc.data() ?? {};
-        final remotePreferences =
-            data['notificationPreferences'] as Map<String, dynamic>? ?? {};
+      // Refresh the user profile from the backend (falls back to local cache)
+      await userService.fetchAndUpdateUser();
 
-        // Load values from Firestore, defaulting to true if somehow null
+      if (userService.isUserLoggedIn && mounted) {
+        final remotePreferences =
+            userService.currentUser.notificationPreferences;
+
+        // Load values from the backend, defaulting to true if somehow null
         _dailyReminderEnabled =
-            remotePreferences[kDailyReminderEnabled] ?? true;
-        _streaksEnabled = remotePreferences[kStreaksEnabled] ?? true;
+            remotePreferences[kDailyReminderEnabled] as bool? ?? true;
+        _streaksEnabled = remotePreferences[kStreaksEnabled] as bool? ?? true;
         _mindfulMomentsEnabled =
-            remotePreferences[kMindfulMomentsEnabled] ?? true;
+            remotePreferences[kMindfulMomentsEnabled] as bool? ?? true;
 
         // Sync these authoritative settings to our fast local cache
         await preferences.setBool(kDailyReminderEnabled, _dailyReminderEnabled);
@@ -77,10 +69,17 @@ class _NotificationSettingsScreenState
           kMindfulMomentsEnabled,
           _mindfulMomentsEnabled,
         );
+      } else {
+        // Fall back to loading from the local cache
+        _dailyReminderEnabled =
+            preferences.getBool(kDailyReminderEnabled) ?? true;
+        _streaksEnabled = preferences.getBool(kStreaksEnabled) ?? true;
+        _mindfulMomentsEnabled =
+            preferences.getBool(kMindfulMomentsEnabled) ?? true;
       }
     } catch (e) {
-      debugPrint("Error loading settings from Firestore: $e");
-      // If Firestore fails, we can fall back to loading from the local cache
+      debugPrint("Error loading notification settings: $e");
+      // If the backend fails, fall back to loading from the local cache
       final preferences = await SharedPreferences.getInstance();
       _dailyReminderEnabled =
           preferences.getBool(kDailyReminderEnabled) ?? true;
@@ -92,8 +91,8 @@ class _NotificationSettingsScreenState
     }
   }
 
-  // This function now provides instant UI feedback by saving locally first,
-  // then saves to Firestore in the background.
+  // This function provides instant UI feedback by saving locally first,
+  // then saves to the backend in the background.
   Future<void> _updateSetting(String key, bool value) async {
     // Update local UI state and SharedPreferences immediately for a snappy feel
     setState(() {
@@ -106,19 +105,12 @@ class _NotificationSettingsScreenState
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(key, value);
 
-    // Then, save to Firestore in the background.
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) {
-      if (mounted) setState(() => _isUpdating[key] = false);
-      return;
-    }
+    // Then, save to the backend in the background.
+    final response = await locator<UserRepository>()
+        .updateNotificationPreferences({key: value});
 
-    try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
-        'notificationPreferences.$key': value,
-      });
-    } catch (e) {
-      debugPrint("Error updating setting in Firestore: $e");
+    if (!response.isSuccess) {
+      debugPrint("Error updating setting on backend: ${response.error}");
       if (mounted) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,7 +123,7 @@ class _NotificationSettingsScreenState
         );
       }
 
-      // If Firestore fails, revert the change in the UI and local cache
+      // If the backend fails, revert the change in the UI and local cache
       await preferences.setBool(key, !value);
       if (mounted) {
         setState(() {
@@ -140,10 +132,10 @@ class _NotificationSettingsScreenState
           if (key == kMindfulMomentsEnabled) _mindfulMomentsEnabled = !value;
         });
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdating[key] = false);
-      }
+    }
+
+    if (mounted) {
+      setState(() => _isUpdating[key] = false);
     }
   }
 
