@@ -14,7 +14,6 @@ import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_spacing.dart';
 import '../../../../config/theme/app_animations.dart';
 import '../../../../core/services/haptic_service.dart';
-import '../../../../core/services/sound_service.dart';
 import '../../../../core/services/user_service.dart';
 import '../../../../core/services/service_locator.dart';
 import '../../../../core/widgets/animated_card.dart';
@@ -32,7 +31,6 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   late final ja.AudioPlayer _player;
   final _hapticService = HapticService();
-  final _soundService = SoundService();
   final _vibeRepository = locator<VibeRepository>();
   final _userService = locator<UserService>();
 

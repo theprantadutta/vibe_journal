@@ -28,8 +28,8 @@ class RestoreVibesDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return WillPopScope(
-      onWillPop: () async => false, // Prevent back button
+    return PopScope(
+      canPop: false, // Prevent back button
       child: Material(
         color: Colors.transparent,
         child: Container(

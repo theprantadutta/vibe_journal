@@ -6,7 +6,6 @@ import 'package:vibe_journal/config/theme/app_colors.dart';
 import 'package:vibe_journal/config/theme/app_spacing.dart';
 import 'package:vibe_journal/config/theme/app_animations.dart';
 import 'package:vibe_journal/core/services/haptic_service.dart';
-import 'package:vibe_journal/core/services/sound_service.dart';
 import 'package:vibe_journal/core/widgets/animated_card.dart';
 import 'package:vibe_journal/core/services/service_locator.dart';
 import 'package:vibe_journal/features/auth/domain/models/user_model.dart';
@@ -36,7 +35,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   bool _isAwaitingResponse = false;
   final ScrollController _scrollController = ScrollController();
   final _hapticService = HapticService();
-  final _soundService = SoundService();
 
   @override
   void initState() {

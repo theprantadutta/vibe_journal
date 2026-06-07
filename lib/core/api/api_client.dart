@@ -175,7 +175,7 @@ class ApiClient {
     try {
       final formData = FormData.fromMap({
         fieldName: await MultipartFile.fromFile(filePath),
-        if (data != null) ...data,
+        ...?data,
       });
 
       final response = await _dio.post(

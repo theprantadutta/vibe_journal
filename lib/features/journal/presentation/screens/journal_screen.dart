@@ -320,10 +320,12 @@ class _JournalScreenState extends State<JournalScreen>
             if (result.success) {
               // Refresh user data to get updated cloud_vibe_count
               await _userService.fetchAndUpdateUser();
+              if (!mounted) return;
               // Reload user model and vibe count
               final updatedUser = _userService.currentUser;
               setState(() => _currentUserModel = updatedUser);
               await _loadVibeCountAndLimit();
+              if (!mounted) return;
 
               // Show transcription processing notification
               SnackBarUtils.showInfo(

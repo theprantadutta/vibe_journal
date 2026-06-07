@@ -16,7 +16,6 @@ import '../../../../core/services/user_service.dart';
 import '../../../../config/theme/app_spacing.dart';
 import '../../../../config/theme/app_animations.dart';
 import '../../../../core/services/haptic_service.dart';
-import '../../../../core/services/sound_service.dart';
 import '../../../../core/widgets/animated_card.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../journal/domain/models/vibe_model.dart';
@@ -39,7 +38,6 @@ class _InsightsScreenState extends State<InsightsScreen> {
   List<VibeModel> _allVibes = [];
 
   final _hapticService = HapticService();
-  final _soundService = SoundService();
   final _vibeRepository = locator<VibeRepository>();
   final _userService = locator<UserService>();
 

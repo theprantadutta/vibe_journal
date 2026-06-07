@@ -20,7 +20,7 @@ class SubscriptionApiClient {
         data: {
           'product_id': productId,
           'purchase_token': purchaseToken,
-          if (orderId != null) 'order_id': orderId,
+          'order_id': ?orderId,
         },
       );
 

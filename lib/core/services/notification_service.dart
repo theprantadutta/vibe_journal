@@ -125,10 +125,10 @@ class NotificationService {
 
     if (notification != null && android != null) {
       _localNotifications.show(
-        notification.hashCode, // Unique ID for the notification
-        notification.title,
-        notification.body,
-        NotificationDetails(
+        id: notification.hashCode, // Unique ID for the notification
+        title: notification.title,
+        body: notification.body,
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             'vibe_journal_channel', // Same as channel ID
             'High Importance Notifications',

@@ -182,7 +182,7 @@ class CelebrationPresets {
 /// A helper widget to trigger confetti from anywhere in the widget tree
 class CelebrationTrigger extends StatefulWidget {
   final Widget child;
-  final GlobalKey<_CelebrationTriggerState> celebrationKey;
+  final GlobalKey<CelebrationTriggerState> celebrationKey;
 
   const CelebrationTrigger({
     super.key,
@@ -191,10 +191,10 @@ class CelebrationTrigger extends StatefulWidget {
   });
 
   @override
-  State<CelebrationTrigger> createState() => _CelebrationTriggerState();
+  State<CelebrationTrigger> createState() => CelebrationTriggerState();
 }
 
-class _CelebrationTriggerState extends State<CelebrationTrigger> {
+class CelebrationTriggerState extends State<CelebrationTrigger> {
   late ConfettiController _controller;
 
   @override

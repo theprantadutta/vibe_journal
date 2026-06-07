@@ -16,7 +16,6 @@ import 'package:vibe_journal/config/theme/app_colors.dart';
 import 'package:vibe_journal/config/theme/app_spacing.dart';
 import 'package:vibe_journal/config/theme/app_animations.dart';
 import 'package:vibe_journal/core/services/haptic_service.dart';
-import 'package:vibe_journal/core/services/sound_service.dart';
 import 'package:vibe_journal/core/utils/snackbar_utils.dart';
 import 'package:vibe_journal/core/widgets/animated_card.dart';
 import 'package:vibe_journal/core/widgets/animated_button.dart';
@@ -36,7 +35,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UserModel _userModel = locator<UserModel>();
   final UserService _userService = locator<UserService>();
   final _hapticService = HapticService();
-  final _soundService = SoundService();
 
   String getInitials(String fullName) {
     if (fullName.isEmpty) return "V";

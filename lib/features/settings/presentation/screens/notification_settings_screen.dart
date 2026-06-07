@@ -79,7 +79,7 @@ class _NotificationSettingsScreenState
         );
       }
     } catch (e) {
-      print("Error loading settings from Firestore: $e");
+      debugPrint("Error loading settings from Firestore: $e");
       // If Firestore fails, we can fall back to loading from the local cache
       final preferences = await SharedPreferences.getInstance();
       _dailyReminderEnabled =
@@ -118,14 +118,18 @@ class _NotificationSettingsScreenState
         'notificationPreferences.$key': value,
       });
     } catch (e) {
-      print("Error updating setting in Firestore: $e");
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text("Could not save setting. Check your connection."),
-          backgroundColor: AppColors.getError(isDark),
-        ),
-      );
+      debugPrint("Error updating setting in Firestore: $e");
+      if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              "Could not save setting. Check your connection.",
+            ),
+            backgroundColor: AppColors.getError(isDark),
+          ),
+        );
+      }
 
       // If Firestore fails, revert the change in the UI and local cache
       await preferences.setBool(key, !value);
