@@ -212,7 +212,9 @@ class _JournalScreenState extends State<JournalScreen>
             );
           });
 
-      final maxDurationMs = (_userService.isPremium ? 60 : 5) * 60 * 1000;
+      // Use the plan limit from the backend (free: 5 min, premium: 60 min)
+      final maxDurationMs =
+          _userService.maxRecordingDurationMinutes * 60 * 1000;
       _maxDurationTimer = Timer(Duration(milliseconds: maxDurationMs), () {
         if (_recordingState == AppRecordingState.recording) {
           _stopRecording();

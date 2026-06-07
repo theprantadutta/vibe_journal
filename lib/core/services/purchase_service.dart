@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
+import '../api/subscription_api_client.dart';
+import 'service_locator.dart';
+import 'user_service.dart';
+
 /// Service to handle Google Play in-app purchases
 class PurchaseService {
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
@@ -34,6 +38,9 @@ class PurchaseService {
   // Initialization status
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
+
+  // Purchase tokens with an in-flight backend verification
+  final Set<String> _verifyingTokens = {};
 
   /// Initialize the purchase service
   Future<void> initialize() async {
@@ -129,19 +136,12 @@ class PurchaseService {
         purchaseParam = PurchaseParam(productDetails: product);
       }
 
-      // Initiate purchase
-      final bool success;
-      if (productId == productLifetime) {
-        // One-time purchase (lifetime)
-        success = await _inAppPurchase.buyNonConsumable(
-          purchaseParam: purchaseParam,
-        );
-      } else {
-        // Subscription (monthly/yearly)
-        success = await _inAppPurchase.buyConsumable(
-          purchaseParam: purchaseParam,
-        );
-      }
+      // Initiate purchase. Subscriptions and one-time purchases both use
+      // buyNonConsumable; buyConsumable would consume the purchase token on
+      // Android, breaking subscription acknowledgment and restore.
+      final bool success = await _inAppPurchase.buyNonConsumable(
+        purchaseParam: purchaseParam,
+      );
 
       if (!success) {
         debugPrint('❌ Failed to initiate purchase');
@@ -205,7 +205,43 @@ class PurchaseService {
 
   void _handleSuccessfulPurchase(PurchaseDetails purchaseDetails) {
     debugPrint('✅ Purchase successful: ${purchaseDetails.productID}');
-    // The backend verification will be handled by the UI layer listening to purchaseUpdates
+    // Verify with the backend even when no screen is listening (e.g. a
+    // pending purchase that completes after an app restart). The paywall
+    // screen also verifies; the backend handles the same purchase token
+    // idempotently, and _verifyingTokens prevents duplicate in-flight calls.
+    _verifyPurchaseWithBackend(purchaseDetails);
+  }
+
+  Future<void> _verifyPurchaseWithBackend(
+    PurchaseDetails purchaseDetails,
+  ) async {
+    final userService = locator<UserService>();
+
+    // Nothing to activate when the user is already premium
+    if (userService.isUserLoggedIn && userService.isPremium) return;
+
+    final purchaseToken = getPurchaseToken(purchaseDetails);
+    if (purchaseToken == null) return;
+
+    // Avoid duplicate in-flight verifications for the same token
+    if (!_verifyingTokens.add(purchaseToken)) return;
+
+    try {
+      await locator<SubscriptionApiClient>().verifyPurchase(
+        productId: purchaseDetails.productID,
+        purchaseToken: purchaseToken,
+        orderId: getOrderId(purchaseDetails),
+      );
+      await userService.refreshUser();
+      debugPrint(
+        '✅ Purchase verified with backend: ${purchaseDetails.productID}',
+      );
+    } catch (e) {
+      // Not fatal: the paywall flow or "restore purchases" can retry later
+      debugPrint('⚠️ Backend purchase verification failed: $e');
+    } finally {
+      _verifyingTokens.remove(purchaseToken);
+    }
   }
 
   void _handlePurchaseError(PurchaseDetails purchaseDetails) {

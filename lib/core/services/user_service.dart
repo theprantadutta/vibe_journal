@@ -26,7 +26,8 @@ class UserService {
     return _currentUser?.isPremium ?? false;
   }
 
-  int get maxCloudVibes => _currentPlanDetails?.maxCloudVibes ?? 75;
+  // Default to the FREE plan limit when plan details are unavailable
+  int get maxCloudVibes => _currentPlanDetails?.maxCloudVibes ?? 20;
   int get maxRecordingDurationMinutes =>
       _currentPlanDetails?.maxRecordingDurationMinutes ?? 5;
 
