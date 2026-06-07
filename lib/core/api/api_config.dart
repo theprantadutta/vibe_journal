@@ -1,14 +1,19 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 /// API Configuration
 ///
 /// Centralized API configuration for different environments
 class ApiConfig {
-  // Base URLs
-  static const String productionBaseUrl =
+  // Base URLs (loaded from .env)
+  static String get productionBaseUrl =>
+      dotenv.env['PROD_API_BASE_URL'] ??
       'https://pranta.vps.webdock.cloud/vibejournal';
-  static const String developmentBaseUrl = 'http://localhost:8000';
+  static String get developmentBaseUrl =>
+      dotenv.env['DEV_API_BASE_URL'] ?? 'http://localhost:8000';
 
-  // Current environment (change this for different builds)
-  static const bool isProduction = true;
+  // Current environment (release builds use production, debug/profile use development)
+  static const bool isProduction = kReleaseMode;
 
   // Get current base URL based on environment
   static String get baseUrl =>
