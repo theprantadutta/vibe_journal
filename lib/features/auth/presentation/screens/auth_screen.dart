@@ -153,6 +153,11 @@ class _AuthScreenState extends State<AuthScreen> {
         final userService = locator<UserService>();
         final fetchedFromBackend = await userService.fetchAndUpdateUser();
 
+        // AuthGuard reacts to the Firebase auth state change and may have
+        // already swapped this screen for the main app, unmounting us.
+        // If so, navigation is handled - there is nothing left to do here.
+        if (!mounted) return;
+
         if (!fetchedFromBackend) {
           _hapticService.error();
           _soundService.error();
@@ -227,6 +232,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
         // Fetch user profile from the backend (falls back to local cache)
         final fetchedFromBackend = await userService.fetchAndUpdateUser();
+
+        // AuthGuard reacts to the Firebase auth state change and may have
+        // already swapped this screen for the main app, unmounting us.
+        // If so, navigation is handled - there is nothing left to do here.
+        if (!mounted) return;
 
         if (!fetchedFromBackend) {
           _hapticService.error();
